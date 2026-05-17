@@ -1,5 +1,5 @@
 ﻿#Requires AutoHotkey v2.0
-
+; test commit
 ; TODO: Zmiana wskaźnika głośności na dymek %
 #SingleInstance Force
 A_MenuMaskKey := "vkFF" ; Obejście: Pusty klawisz maskujący (blokuje DrawFocusRect na pulpicie)
