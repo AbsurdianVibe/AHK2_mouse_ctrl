@@ -1,0 +1,9 @@
+[submodule "AHK2_external_code"]
+	path = AHK2_external_code
+	url = https://github.com/AbsurdianVibe/AHK2_external_code.git
+[submodule "AHK2_Colorful_GUI"]
+	path = AHK2_Colorful_GUI
+	url = https://github.com/AbsurdianVibe/AHK2_Colorful_GUI.git
+[submodule "AHK2_My_libs"]
+	path = AHK2_My_libs
+	url = https://github.com/AbsurdianVibe/AHK2_My_libs.git

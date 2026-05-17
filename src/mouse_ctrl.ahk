@@ -15,10 +15,10 @@ class _StoperStart {
     }
 }
 
-#Include "..\..\AHK2_external_code\UIA.ahk"
-#Include "..\..\AHK2_Colorful_GUI\AHK2ColorfulGUI.ahk"
+#Include "..\AHK2_external_code\UIA.ahk"
+#Include "..\AHK2_Colorful_GUI\AHK2ColorfulGUI.ahk"
 #Include "mouse_ctrl_lib.ahk"
-#Include "..\..\AHK2_My_libs\MojeFunkcje.ahk"
+#Include "..\AHK2_My_libs\MojeFunkcje.ahk"
 
 QPC("Auto-Execute: Poczatek")
 ; #region --- SPRAWDZANIE UPRAWNIEŃ ---
