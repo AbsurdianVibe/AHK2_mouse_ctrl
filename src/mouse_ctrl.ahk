@@ -153,7 +153,7 @@ global klawiszeZamykajace := ["~LButton", "~MButton", "~RButton Up", "~WheelUP",
 
 ZamknijWszystkie(*) {
     QPC("ZamknijWszystkie: START")
-    global AktywneOkna, ih
+    global AktywneOkna, ih, StartZakonczony
     (IsSet(ih) && ih is InputHook && ih.Stop())
     QPC("ZamknijWszystkie: InputHook zatrzymany")
     for okno in AktywneOkna {
@@ -164,12 +164,15 @@ ZamknijWszystkie(*) {
     
     for klawisz in klawiszeZamykajace
         Hotkey(klawisz, ZamknijWszystkie, "Off")
+    
+    StartZakonczony := true ; SHIELD OFF: Enable profile hotkeys
     QPC("ZamknijWszystkie: KONIEC (Zdjete Hotkeye)")
 }
 
 stworzPowiadomienieStartowe(tekst, kolor, yPoz) => AktywneOkna.Push(GenerujGuiPowiadomienia(tekst, kolor, yPoz))
 
-global StartZakonczony := true ; TARCZA OFF: Skrypt poprawnie zweryfikował uprawnienia i narysował ekran rozruchowy
+; SHIELD REMAINS ON: Hardware hotkeys are blocked until Splash Screen is closed
+global StartZakonczony := false
 SetTimer(AsynchronicznaInicjalizacja, -1) ; Uruchom WMI w tle
 QPC("Boot: KONIEC AUTO-EXECUTE (Przekazanie do Async)")
 
