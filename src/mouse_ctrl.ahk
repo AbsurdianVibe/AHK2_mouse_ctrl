@@ -5,6 +5,17 @@
 A_MaxHotkeysPerInterval := 200 ; Anti-spam scrolla
 ProcessSetPriority "High"
 DllCall("User32\ChangeWindowMessageFilterEx", "Ptr", A_ScriptHwnd, "UInt", 0x0044, "UInt", 1, "Ptr", 0) ; Przepustka UIPI dla restartu (#SingleInstance)
+#Include "..\TimeLog.ahk"
+
+QPC("START")
+
+global SplashRozruch := Gui("-Caption +AlwaysOnTop +ToolWindow +E0x08000000")
+SplashRozruch.BackColor := "363533"
+SplashRozruch.SetFont("s20 cb4b4b4", "Segoe UI") ;KolorTekst
+SplashRozruch.Add("Text", "Center w500 y15", "MouseCtrl: Wczytywanie modułów...")
+SplashRozruch.Add("Text", "Center w500 y+5", "Profil: ?")
+SplashRozruch.Show("NA w 500 y0")
+QPC("Boot: Wyswietlenie SplashRozruch")
 
 class _StoperStart {
     static __New() {
@@ -16,6 +27,8 @@ class _StoperStart {
 #Include "..\AHK2_Colorful_GUI\AHK2ColorfulGUI.ahk"
 #Include "mouse_ctrl_lib.ahk"
 #Include "..\AHK2_My_libs\MojeFunkcje.ahk"
+
+QPC("Boot: Ladowanie bibliotek zakonczone")
 
 ; #region --- SPRAWDZANIE UPRAWNIEŃ ---
 ; TODO: Fix skalowania (refaktor legendy do silnika)
@@ -29,6 +42,8 @@ global Uprawnienia := Number(IniRead(IniPath, "Settings", "Uprawnienia", 1))
 ; Wymuszenie Admina (jeśli config pozwala)
 if (!A_IsAdmin && Uprawnienia && !RegExMatch(DllCall("GetCommandLine", "str"), " /restart(?!\S)"))
     try Run('*RunAs "' . (A_IsCompiled ? A_ScriptFullPath . '" /restart' : A_AhkPath . '" /restart "' . A_ScriptFullPath . '"')), ExitApp()
+
+QPC("Boot: Weryfikacja UAC zakonczona")
 ; #endregion
 ;----------------------------------------------------------------------------------------------------------------------------------------------
 ; #region --- INICJALIZACJA I PLIK INI ---
@@ -48,19 +63,32 @@ if !FileExist(IniPath) { ; Init default INI
 ; Wczytywanie ustawień
 class DaneGlobalne {
     static __New() {
-        global DefaultProfile      := Number(IniRead(IniPath, "Settings", "DefaultProfile", 0))
-        global BrightnessStepMouse := Number(IniRead(IniPath, "Settings", "BrightnessStepMouse", 3))
-        global BrightnessStepKbd   := Number(IniRead(IniPath, "Settings", "BrightnessStepKbd", 5))
-        global VolStepMouse        := Number(IniRead(IniPath, "Settings", "VolStepMouse", 2))
-        global PokazPodpowiedzi    := Number(IniRead(IniPath, "Settings", "PokazPodpowiedzi", 1))
-        global HoldThreshold       := Float(IniRead(IniPath, "Settings", "HoldThreshold", 0.15))
+        QPC("DaneGlobalne: Start inicjalizacji")
+        
+        try Sekcja := IniRead(IniPath, "Settings")
+        catch 
+            Sekcja := ""
+            
+        myIni := Map()
+        Loop Parse, Sekcja, "`n", "`r"
+            if RegExMatch(A_LoopField, "^(.*?)=(.*)$", &m)
+                myIni[m[1]] := m[2]
+                
+        myRead(Klucz, Domyslna) => myIni.Has(Klucz) ? myIni[Klucz] : Domyslna
+
+        global DefaultProfile      := Number(myRead("DefaultProfile", 0))
+        global BrightnessStepMouse := Number(myRead("BrightnessStepMouse", 3))
+        global BrightnessStepKbd   := Number(myRead("BrightnessStepKbd", 5))
+        global VolStepMouse        := Number(myRead("VolStepMouse", 2))
+        global PokazPodpowiedzi    := Number(myRead("PokazPodpowiedzi", 1))
+        global HoldThreshold       := Float(myRead("HoldThreshold", 0.15))
         global ListaProfili        := ["AUTO (Wykrywanie)", "Mysz Genesis + Klawiatura", "Mysz zwykła + Klawiatura", "Tylko Klawiatura", "Tryb OFF"]
 
         if FileExist(A_ScriptDir . "\mouse_ctrl.ico")
             TraySetIcon(A_ScriptDir . "\mouse_ctrl.ico")
         global AktywneOkna := []
         global CurrentProfile := DefaultProfile 
-        global currentBrightness := Number(IniRead(IniPath, "Settings", "LastBrightness", 10))
+        global currentBrightness := Number(myRead("LastBrightness", 10))
         global LegendaGui := 0
         global GlUs := 0
         global AktywnyTip := 0
@@ -69,7 +97,7 @@ class DaneGlobalne {
         global Szerokośćpopupow := 500 
         global SzerkokośćOknaLegendy := 200
         global TargetMouseID := "HID\VID_4E53&PID_5407" 
-        global GenesisActive := Number(IniRead(IniPath, "Settings", "LastGenesisActive", 0))
+        global GenesisActive := Number(myRead("LastGenesisActive", 0))
         global DystansDoZamkniecia := 100 ; Dystans w px do zamknięcia popupu
         global MyszNadIkona := false
         global TipLive := 5000 ; Czas życia tooltipa (ms)
@@ -88,12 +116,14 @@ class DaneGlobalne {
         global KolorPrzycisku  := SilnikGUI.Motyw.Przycisk
         global ParametrFocus   := SilnikGUI.Motyw.ParamFocus
         OnExit(ZapiszStanSprzetowy)
+        QPC("DaneGlobalne: Koniec inicjalizacji")
     }
 }
 
 OnMessage(0x0200, ObslugaTooltipow)
 OnMessage(0x211, DetectMenuEntry) ; WM_ENTERMENULOOP
 DetectMenuEntry(wParam, lParam, msg, hwnd) => UsunTip()
+QPC("Boot: Rejestracja OnMessage")
 ; #endregion
 ;----------------------------------------------------------------------------------------------------------------------------------------------
 ; #region --- KONFIGURACJA MENU TRAY ---
@@ -111,13 +141,10 @@ A_TrayMenu.Add("Odblokuj Klawisze (Ctrl+Alt+R)", (*) => AwaryjneOdblokowanie())
 A_TrayMenu.Add("Wyjdź", (*) => ExitApp())
 
 OnMessage(0x219, OnDeviceChange)
+OnMessage(0x5555, myOnHardwareStateReady)
 
-global SplashRozruch := Gui("-Caption +AlwaysOnTop +ToolWindow +E0x08000000")
-SplashRozruch.BackColor := KolorMotywu
-SplashRozruch.SetFont("s20 c" KolorNieaktywny, "Segoe UI") ;KolorTekst
-SplashRozruch.Add("Text", "Center w" . Szerokośćpopupow . " y15", "MouseCtrl: Wczytywanie modułów...")
-SplashRozruch.Add("Text", "Center w" . Szerokośćpopupow . " y+5", "Profil: " PobierzNazweProfilu())
-SplashRozruch.Show("NA w" . Szerokośćpopupow . " y0")
+QPC("Boot: Konfiguracja Tray zakonczona")
+
 ; #endregion
 ;----------------------------------------------------------------------------------------------------------------------------------------------
 ; #region --- STARTOWE POWIADOMIENIA I DETEKCJA ---
@@ -125,30 +152,38 @@ OnMessage(0x404, OnTrayMouseEvent) ; Obsługa najechania myszą na ikonę
 global klawiszeZamykajace := ["~LButton", "~MButton", "~RButton Up", "~WheelUP", "~WheelDown", "~XButton1", "~XButton2"]
 
 ZamknijWszystkie(*) {
+    QPC("ZamknijWszystkie: START")
     global AktywneOkna, ih
     (IsSet(ih) && ih is InputHook && ih.Stop())
-    for okno in AktywneOkna
+    QPC("ZamknijWszystkie: InputHook zatrzymany")
+    for okno in AktywneOkna {
         try okno.Destroy()
+        QPC("ZamknijWszystkie: Zniszczono okno powiadomienia")
+    }
     AktywneOkna := []
     
     for klawisz in klawiszeZamykajace
         Hotkey(klawisz, ZamknijWszystkie, "Off")
+    QPC("ZamknijWszystkie: KONIEC (Zdjete Hotkeye)")
 }
 
 stworzPowiadomienieStartowe(tekst, kolor, yPoz) => AktywneOkna.Push(GenerujGuiPowiadomienia(tekst, kolor, yPoz))
 
 global StartZakonczony := true ; TARCZA OFF: Skrypt poprawnie zweryfikował uprawnienia i narysował ekran rozruchowy
 SetTimer(AsynchronicznaInicjalizacja, -1) ; Uruchom WMI w tle
+QPC("Boot: KONIEC AUTO-EXECUTE (Przekazanie do Async)")
 
 AsynchronicznaInicjalizacja() {
-    SilnikGUI.InicjalizujSilnik()
+    QPC("Async: Start")
     
-    ; Phantom Pre-warm: force JIT compilation while Splash is visible (~450ms)
-    myPhantomGUI := SilnikGUI("Phantom")
-    myPhantomGUI.Zakoncz()
+    myWorkerPath := A_ScriptDir . "\myPreWarmWorker.ahk"
+    try Run('"' . A_AhkPath . '" "' . myWorkerPath . '"')
+    QPC("Async: Oddelegowano InicjalizujSilnik do myPreWarmWorker")
+    
     
     ; Cache Shell API path while Splash is visible
     global myCachedStartupPath := A_Startup . "\mouse_ctrl.lnk"
+    QPC("Async: Cache sciezki A_Startup")
     
     global InicjalizacjaTrwa := false
     A_IconTip := "Mouse Control"
@@ -156,9 +191,11 @@ AsynchronicznaInicjalizacja() {
     global SplashRozruch
     if IsSet(SplashRozruch) && SplashRozruch
         SplashRozruch.Destroy()
+    QPC("Async: Zniszczenie SplashRozruch")
         
     stworzPowiadomienieStartowe(PobierzNazweProfilu(), TipColor(), 0)
     stworzPowiadomienieStartowe(A_IsAdmin ? "PEŁNE UPRAWNIENIA" : "OGRANICZNONE  UPRAWNIENIA`nSkróty nie będą działać w oknach systemowych, takich jak`n Menedżer zadań.", A_IsAdmin ? "9FFB88" : "FA8072", 70)
+    QPC("Async: Wyswietlenie powiadomien startowych")
     
     global ih := InputHook("L1 M", "{LCtrl}{RCtrl}{LAlt}{RAlt}{LShift}{RShift}{LWin}{RWin}{BS}{ScrollLock}{Del}{Ins}{Home}{End}{PgUp}{PgDn}{Up}{Down}{Left}{Right}{CapsLock}{F1}{F2}{F3}{F4}{F5}{F6}{F7}{F8}{F9}{F10}{F11}{F12}") 
     ih.KeyOpt("{All}", "+N")
@@ -168,39 +205,44 @@ AsynchronicznaInicjalizacja() {
     for klawisz in klawiszeZamykajace
         Hotkey(klawisz, ZamknijWszystkie, "On")
         
-    SetTimer(myDeferredInit, -3000)
+    SetTimer(myDeferredInit, -1)
+    QPC("Async: Koniec (Zapiecie hookow i Hotkey)")
 }
 
 /** Synchronizes INI cache with actual hardware state after fast boot */
 myDeferredInit() {
     AudioMonitor.Update()
-    
-    global currentBrightness := PobierzAktualnaJasnosc()
-    
-    global CurrentProfile
-    if (CurrentProfile == 0)
-        SprawdzMysz()
+    myFetchHardwareState()
 }
 ; #endregion
 ;----------------------------------------------------------------------------------------------------------------------------------------------
 ; #region --- MODUŁ AUTOWYKRYWANIA MYSZY ---
 OnDeviceChange(wParam, lParam, msg, hwnd) {
-    SetTimer(SprawdzMysz, -1000)
+    SetTimer(myFetchHardwareState, -1000)
     SetTimer(() => AudioMonitor.Update(), -500) ; Odśwież cache audio po zmianie sprzętu
 }
 
-SprawdzMysz() {
-    global GenesisActive, TargetMouseID, CurrentProfile
-    if (CurrentProfile != 0) 
-    return
+myFetchHardwareState() {
+    global TargetMouseID
+    myWorkerPath := A_ScriptDir . "\myHardwareWorker.ahk"
+    try Run('"' . A_AhkPath . '" "' . myWorkerPath . '" "' . A_ScriptHwnd . '" "' . TargetMouseID . '"')
+}
 
-    staryStan := GenesisActive, GenesisActive := false
-    try GenesisActive := ComObjGet("winmgmts:\\.\root\cimv2").ExecQuery("SELECT * FROM Win32_PnPEntity WHERE DeviceID LIKE '%" . StrReplace(TargetMouseID, "\", "\\") . "%' AND Status='OK'").Count > 0
-
-    if (staryStan != GenesisActive) {
-        if (!IsSet(InicjalizacjaTrwa) || !InicjalizacjaTrwa)
-            PokazTip((GenesisActive ? "WYKRYTO" : "ODŁĄCZONO") . " Mysz : Genesis", GenesisActive ? "9FFB88" : "FA8072")
-        LegendaIstnieje() && AktualizujListe()
+myOnHardwareStateReady(wParam, lParam, msg, hwnd) {
+    global GenesisActive, currentBrightness, CurrentProfile, InicjalizacjaTrwa
+    myIniPath := A_ScriptDir . "\myHardwareState.ini"
+    
+    myNewGenesis := Number(IniRead(myIniPath, "State", "GenesisActive", GenesisActive))
+    currentBrightness := Number(IniRead(myIniPath, "State", "Brightness", currentBrightness))
+    
+    if (CurrentProfile == 0) {
+        myOldState := GenesisActive
+        GenesisActive := myNewGenesis
+        if (myOldState != GenesisActive) {
+            if (!IsSet(InicjalizacjaTrwa) || !InicjalizacjaTrwa)
+                PokazTip((GenesisActive ? "WYKRYTO" : "ODŁĄCZONO") . " Mysz : Genesis", GenesisActive ? "9FFB88" : "FA8072")
+            LegendaIstnieje() && AktualizujListe()
+        }
     }
 }
 ; #endregion
@@ -227,6 +269,13 @@ OnTrayMouseEvent(wParam, lParam, msg, hwnd) {
     return
     global AktywnyTip, MyszNadIkona
     
+    static myPhantomPreWarmed := false
+    if (!myPhantomPreWarmed) {
+        myPhantomPreWarmed := true
+        ; Phantom Pre-warm: opóźniona kompilacja JIT przy pierwszym najechaniu
+        SetTimer(() => (myPhantomGUI := SilnikGUI("Phantom"), myPhantomGUI.Zakoncz()), -50)
+    }
+    
     if (MyszNadIkona) 
         return SetTimer(UsunTip, -TipLive)
 
@@ -244,7 +293,7 @@ PobierzNazweProfilu() => ["AUTO: " . (GenesisActive ? "Mysz Genesis" : "Mysz Sta
 UstawProfil(nr, pokazacTip := false) {
     global CurrentProfile := nr
     if (nr == 0)
-        SprawdzMysz()
+        myFetchHardwareState()
 
     A_IconTip := "Mouse Control"
 
@@ -852,14 +901,6 @@ AktualizujTooltipWLocie() => LegendaIstnieje() && (MouseGetPos(,,, &hCtrl, 2), O
 ; #endregion
 ;----------------------------------------------------------------------------------------------------------------------------------------------
 ; #region --- OBSŁUGA ZMIANY JASNOŚCI ---
-
-PobierzAktualnaJasnosc() {
-    try {
-        for monitor in ComObjGet("winmgmts:\\.\root\WMI").ExecQuery("SELECT CurrentBrightness FROM WmiMonitorBrightness")
-            return monitor.CurrentBrightness
-    }
-    return 10 ; Domyślnie
-}
 
 ZmianaJasnosci(delta) {
     global currentBrightness
