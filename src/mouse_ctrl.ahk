@@ -2,11 +2,10 @@
 ; test commit
 ; TODO: Zmiana wskaźnika głośności na dymek %
 #SingleInstance Force
-A_MenuMaskKey := "vkFF" ; Obejście: Pusty klawisz maskujący (blokuje DrawFocusRect na pulpicie)
 A_MaxHotkeysPerInterval := 200 ; Anti-spam scrolla
 ProcessSetPriority "High"
 DllCall("User32\ChangeWindowMessageFilterEx", "Ptr", A_ScriptHwnd, "UInt", 0x0044, "UInt", 1, "Ptr", 0) ; Przepustka UIPI dla restartu (#SingleInstance)
-#Include "..\..\test_scripts\TimeLog.ahk"
+#Include "..\TimeLog.ahk"
 
 class _StoperStart {
     static __New() {
@@ -153,18 +152,12 @@ SetTimer(AsynchronicznaInicjalizacja, -1) ; Uruchom WMI w tle
 QPC("KONIEC AUTO-EXECUTE (Przekazano do Async)")
 
 AsynchronicznaInicjalizacja() {
-    QPC("ASYNC: Start")
+    QPC("FAST INIT: Start")
     SilnikGUI.InicjalizujSilnik()
-    QPC("ASYNC: SilnikGUI.InicjalizujSilnik")
+    QPC("FAST INIT: SilnikGUI.InicjalizujSilnik")
     
-    AudioMonitor.Update()
-    QPC("ASYNC: AudioMonitor.Update")
-    
-    global currentBrightness := PobierzAktualnaJasnosc()
-    global InicjalizacjaTrwa := true
-    UstawProfil(CurrentProfile, false) ; Odpala WMI SprawdzMysz
-    InicjalizacjaTrwa := false
-    QPC("ASYNC: WMI Jasnosc i Mysz")
+    global InicjalizacjaTrwa := false
+    A_IconTip := "Mouse Control"
     
     global SplashRozruch
     if IsSet(SplashRozruch) && SplashRozruch
@@ -181,7 +174,23 @@ AsynchronicznaInicjalizacja() {
     for klawisz in klawiszeZamykajace
         Hotkey(klawisz, ZamknijWszystkie, "On")
         
-    QPC("ASYNC: Koniec (Powiadomienia aktywne)")
+    QPC("FAST INIT: Koniec (Powiadomienia aktywne)")
+    SetTimer(myDeferredInit, -3000)
+}
+
+/** Synchronizes INI cache with actual hardware state after fast boot */
+myDeferredInit() {
+    QPC("DEFERRED INIT: Start (WMI/COM in background)")
+    AudioMonitor.Update()
+    QPC("DEFERRED INIT: AudioMonitor.Update")
+    
+    global currentBrightness := PobierzAktualnaJasnosc()
+    QPC("DEFERRED INIT: WMI Jasnosc")
+    
+    global CurrentProfile
+    if (CurrentProfile == 0)
+        SprawdzMysz()
+    QPC("DEFERRED INIT: WMI Mysz & Koniec")
 }
 ; #endregion
 ;----------------------------------------------------------------------------------------------------------------------------------------------
