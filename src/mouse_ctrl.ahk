@@ -5,11 +5,9 @@
 A_MaxHotkeysPerInterval := 200 ; Anti-spam scrolla
 ProcessSetPriority "High"
 DllCall("User32\ChangeWindowMessageFilterEx", "Ptr", A_ScriptHwnd, "UInt", 0x0044, "UInt", 1, "Ptr", 0) ; Przepustka UIPI dla restartu (#SingleInstance)
-#Include "..\TimeLog.ahk"
 
 class _StoperStart {
     static __New() {
-        QPC("START")
         global StartZakonczony := false ; TARCZA: Blokada skrótów sprzętowych na czas ładowania interpretera
     }
 }
@@ -19,20 +17,18 @@ class _StoperStart {
 #Include "mouse_ctrl_lib.ahk"
 #Include "..\AHK2_My_libs\MojeFunkcje.ahk"
 
-QPC("Auto-Execute: Poczatek")
 ; #region --- SPRAWDZANIE UPRAWNIEŃ ---
 ; TODO: Fix skalowania (refaktor legendy do silnika)
 
 global IniPath := A_ScriptDir . "\mouse_ctrl_settings.ini"
+global myCachedStartupPath := ""
 
 ; Wczytaj config przed sprawdzeniem uprawnień
 global Uprawnienia := Number(IniRead(IniPath, "Settings", "Uprawnienia", 1))
-QPC("Odczyt parametru Uprawnienia z INI")
 
 ; Wymuszenie Admina (jeśli config pozwala)
 if (!A_IsAdmin && Uprawnienia && !RegExMatch(DllCall("GetCommandLine", "str"), " /restart(?!\S)"))
     try Run('*RunAs "' . (A_IsCompiled ? A_ScriptFullPath . '" /restart' : A_AhkPath . '" /restart "' . A_ScriptFullPath . '"')), ExitApp()
-QPC("Sprawdzenie UAC")
 ; #endregion
 ;----------------------------------------------------------------------------------------------------------------------------------------------
 ; #region --- INICJALIZACJA I PLIK INI ---
@@ -47,13 +43,11 @@ if !FileExist(IniPath) { ; Init default INI
     IniWrite(0.15, IniPath, "Settings", "HoldThreshold") ; Domyślny DoubleClick (s)
     IniWrite(0, IniPath, "Settings", "LastGenesisActive")
     IniWrite(10, IniPath, "Settings", "LastBrightness")
-    QPC("Utworzenie domyslnego pliku INI")
 }
 
 ; Wczytywanie ustawień
 class DaneGlobalne {
     static __New() {
-        QPC("DaneGlobalne: Start")
         global DefaultProfile      := Number(IniRead(IniPath, "Settings", "DefaultProfile", 0))
         global BrightnessStepMouse := Number(IniRead(IniPath, "Settings", "BrightnessStepMouse", 3))
         global BrightnessStepKbd   := Number(IniRead(IniPath, "Settings", "BrightnessStepKbd", 5))
@@ -94,15 +88,12 @@ class DaneGlobalne {
         global KolorPrzycisku  := SilnikGUI.Motyw.Przycisk
         global ParametrFocus   := SilnikGUI.Motyw.ParamFocus
         OnExit(ZapiszStanSprzetowy)
-
-        QPC("DaneGlobalne: Koniec __New")
     }
 }
 
 OnMessage(0x0200, ObslugaTooltipow)
 OnMessage(0x211, DetectMenuEntry) ; WM_ENTERMENULOOP
 DetectMenuEntry(wParam, lParam, msg, hwnd) => UsunTip()
-QPC("Rejestracja OnMessage (Tooltip/Menu)")
 ; #endregion
 ;----------------------------------------------------------------------------------------------------------------------------------------------
 ; #region --- KONFIGURACJA MENU TRAY ---
@@ -127,7 +118,6 @@ SplashRozruch.SetFont("s20 c" KolorNieaktywny, "Segoe UI") ;KolorTekst
 SplashRozruch.Add("Text", "Center w" . Szerokośćpopupow . " y15", "MouseCtrl: Wczytywanie modułów...")
 SplashRozruch.Add("Text", "Center w" . Szerokośćpopupow . " y+5", "Profil: " PobierzNazweProfilu())
 SplashRozruch.Show("NA w" . Szerokośćpopupow . " y0")
-QPC("Wyswietlenie natywnego ekranu rozruchowego")
 ; #endregion
 ;----------------------------------------------------------------------------------------------------------------------------------------------
 ; #region --- STARTOWE POWIADOMIENIA I DETEKCJA ---
@@ -149,12 +139,16 @@ stworzPowiadomienieStartowe(tekst, kolor, yPoz) => AktywneOkna.Push(GenerujGuiPo
 
 global StartZakonczony := true ; TARCZA OFF: Skrypt poprawnie zweryfikował uprawnienia i narysował ekran rozruchowy
 SetTimer(AsynchronicznaInicjalizacja, -1) ; Uruchom WMI w tle
-QPC("KONIEC AUTO-EXECUTE (Przekazano do Async)")
 
 AsynchronicznaInicjalizacja() {
-    QPC("FAST INIT: Start")
     SilnikGUI.InicjalizujSilnik()
-    QPC("FAST INIT: SilnikGUI.InicjalizujSilnik")
+    
+    ; Phantom Pre-warm: force JIT compilation while Splash is visible (~450ms)
+    myPhantomGUI := SilnikGUI("Phantom")
+    myPhantomGUI.Zakoncz()
+    
+    ; Cache Shell API path while Splash is visible
+    global myCachedStartupPath := A_Startup . "\mouse_ctrl.lnk"
     
     global InicjalizacjaTrwa := false
     A_IconTip := "Mouse Control"
@@ -174,23 +168,18 @@ AsynchronicznaInicjalizacja() {
     for klawisz in klawiszeZamykajace
         Hotkey(klawisz, ZamknijWszystkie, "On")
         
-    QPC("FAST INIT: Koniec (Powiadomienia aktywne)")
     SetTimer(myDeferredInit, -3000)
 }
 
 /** Synchronizes INI cache with actual hardware state after fast boot */
 myDeferredInit() {
-    QPC("DEFERRED INIT: Start (WMI/COM in background)")
     AudioMonitor.Update()
-    QPC("DEFERRED INIT: AudioMonitor.Update")
     
     global currentBrightness := PobierzAktualnaJasnosc()
-    QPC("DEFERRED INIT: WMI Jasnosc")
     
     global CurrentProfile
     if (CurrentProfile == 0)
         SprawdzMysz()
-    QPC("DEFERRED INIT: WMI Mysz & Koniec")
 }
 ; #endregion
 ;----------------------------------------------------------------------------------------------------------------------------------------------
@@ -337,14 +326,16 @@ PokazUstawienia(*) {
     SzerOknUst := 220 
     pad := 10
     ;STATUS AUTOSTARU
-    ShortcutPath := A_Startup . "\mouse_ctrl.lnk"
-    TaskName := "MouseCtrlAutostart"
-    TaskExists := !RunWait('schtasks /query /tn "' . TaskName . '"', , "Hide")
+    ShortcutPath := myCachedStartupPath
+    TaskExists := myCheckAutostartTask()
     ShortcutExists := FileExist(ShortcutPath) ? 1 : 0
     
     GlUs := SilnikGUI("USTAWIENIA", "", {unikalny: 1, pokazPasek: 1, PadD: pad, PadR: pad, PadL: pad})
-    if (!GlUs.nowaInstancja)
-        return GlUs.Pokaz()
+    
+    if (!GlUs.nowaInstancja) {
+        GlUs.Pokaz()
+        return
+    }
     szerDD := 200
     AdminInfoCtrl := GlUs.Add("Text", "vadmininfoU +0x0100  y+10", (A_IsAdmin ? " ADMIN " : " REGULAR "))
     AdminInfoCtrl.SetFont("bold")    
@@ -385,9 +376,8 @@ PokazUstawienia(*) {
     Edit_BM.Focus()
 }
 WeryfikujKlikniecieAutostartu(ctrl, *) {
-    TaskName := "MouseCtrlAutostart"
     ; czy istnieje zadanie Admina
-    TaskExists := !RunWait('schtasks /query /tn "' . TaskName . '"', , "Hide")
+    TaskExists := myCheckAutostartTask()
     
     ; Blokada zmiany adania bez uprawnień
     if (TaskExists && !A_IsAdmin) {
@@ -402,11 +392,10 @@ ZastosujZmianyAutostartu() {
     ManageAutostart(czyWlaczone)
     
     ; 2. Weryfikacja stanu (0/1)
-    TaskName := "MouseCtrlAutostart"
-    ShortcutPath := A_Startup . "\mouse_ctrl.lnk"
+    ShortcutPath := myCachedStartupPath
     
     ; Check zadania (0=sukces)
-    TaskExists := (RunWait('schtasks /query /tn "' . TaskName . '"', , "Hide") = 0)
+    TaskExists := myCheckAutostartTask()
     ShortcutExists := FileExist(ShortcutPath) ? 1 : 0
     
     StanFaktyczny := (TaskExists || ShortcutExists) ? 1 : 0
@@ -451,10 +440,10 @@ ZapiszIUstaw(G, D, BM, BK, VM, VD, CP, ZamknijOkno := true) {
 
 ManageAutostart(enable) { 
     TaskName := "MouseCtrlAutostart"
-    ShortcutPath := A_Startup . "\mouse_ctrl.lnk"
+    ShortcutPath := myCachedStartupPath
     
     ; Sprawdź harmonogram
-    TaskExists := !RunWait('schtasks /query /tn "' . TaskName . '"', , "Hide")
+    TaskExists := myCheckAutostartTask()
 
     if (enable) {
         if A_IsAdmin {
@@ -504,10 +493,25 @@ ManageAutostart(enable) {
         }
     } else {
         ; Wyłącz: Usuń oba
-        RunWait('schtasks /delete /tn "' . TaskName . '" /f', , "Hide")
+        try {
+            myService := ComObject("Schedule.Service")
+            myService.Connect()
+            myService.GetFolder("\").DeleteTask(TaskName, 0)
+        }
         if FileExist(ShortcutPath)
             FileDelete(ShortcutPath)
     }
+}
+
+/** Checks if admin autostart task exists via COM (avoids slow schtasks.exe I/O) */
+myCheckAutostartTask() {
+    try {
+        myService := ComObject("Schedule.Service")
+        myService.Connect()
+        myService.GetFolder("\").GetTask("MouseCtrlAutostart")
+        return true
+    }
+    return false
 }
 
 ; #endregion
@@ -572,7 +576,7 @@ PokazListeSkrotow(*) {
     ; Stopka
     LegendaGui.SetFont("s13 bold")
     GuiControls.BtnSettings := LegendaGui.Add("Text", "w140 h30 Center Background" . KolorPrzycisku . " " . KolorTekst . " +Border +0x0200", "Ustawienia (F1)")
-    GuiControls.BtnSettings.OnEvent("Click", (*) => (LegendaGui.Hide(), PokazUstawienia()))
+    GuiControls.BtnSettings.OnEvent("Click", (*) => (PokazUstawienia(), LegendaGui.Hide()))
     
     LegendaGui.SetFont("s9", "Segoe UI")
     GuiControls.Exit := LegendaGui.Add("Text", "Center x0 c" . KolorNieaktywny, "(Kliknij na to okno, aby zamknąć)")
@@ -994,7 +998,7 @@ WheelUp::{
 #HotIf
 
 #HotIf StartZakonczony && LegendaIstnieje() && WinGetMinMax("ahk_id " LegendaGui.hwnd) != -1
-F1:: (LegendaGui.Hide(), PokazUstawienia())
+F1:: (PokazUstawienia(), LegendaGui.Hide())
 ; #endregion
 
 ;----------------------------------------------------------------------------------------------------------------------------------------------
