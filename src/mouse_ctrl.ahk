@@ -33,6 +33,7 @@ if !FileExist(IniPath) { ; Init default INI
     IniWrite(5, IniPath, "Settings", "BrightnessStepKbd")
     IniWrite(2, IniPath, "Settings", "VolStepMouse")
     IniWrite(true, IniPath, "Settings", "Uprawnienia")
+    IniWrite(1, IniPath, "Settings", "AdminStartLvl")
     IniWrite(1, IniPath, "Settings", "PokazPodpowiedzi")
     IniWrite(0.15, IniPath, "Settings", "HoldThreshold") ; Domyślny DoubleClick (s)
     IniWrite(0, IniPath, "Settings", "LastGenesisActive")
@@ -58,8 +59,9 @@ class DaneGlobalne {
         global BrightnessStepKbd   := Number(myRead("BrightnessStepKbd", 5))
         global VolStepMouse        := Number(myRead("VolStepMouse", 2))
         global PokazPodpowiedzi    := Number(myRead("PokazPodpowiedzi", 1))
+        global myAdminStartLvl     := Number(myRead("AdminStartLvl", 1))
         global HoldThreshold       := Float(myRead("HoldThreshold", 0.15))
-        global ListaProfili        := ["AUTO (Wykrywanie)", "Mysz Genesis + Klawiatura", "Mysz zwykła + Klawiatura", "Tylko Klawiatura", "Tryb OFF"]
+        global ListaProfili        := ["AUTO (Detect)", "Genesis Mouse + Keyboard", "Standard Mouse + Keyboard", "Keyboard Only", "OFF Mode"]
 
         if FileExist(A_ScriptDir . "\mouse_ctrl.ico")
             TraySetIcon(A_ScriptDir . "\mouse_ctrl.ico")
@@ -103,17 +105,17 @@ DetectMenuEntry(wParam, lParam, msg, hwnd) => UsunTip()
 ;----------------------------------------------------------------------------------------------------------------------------------------------
 ; #region --- KONFIGURACJA MENU TRAY ---
 A_TrayMenu.Delete()
-A_TrayMenu.Add("Pokaż skróty", PokazListeSkrotow)
-A_TrayMenu.Default := "Pokaż skróty"
+A_TrayMenu.Add("Show shortcuts", PokazListeSkrotow)
+A_TrayMenu.Default := "Show shortcuts"
 A_TrayMenu.ClickCount := 1
 A_TrayMenu.Add()
-A_TrayMenu.Add("Ustawienia", PokazUstawienia)
+A_TrayMenu.Add("Settings", PokazUstawienia)
 A_TrayMenu.Add()
 for i, nazwa in ListaProfili
     A_TrayMenu.Add(nazwa, ((idx, *) => UstawProfil(idx)).Bind(i-1))
 A_TrayMenu.Add() 
-A_TrayMenu.Add("Odblokuj Klawisze (Ctrl+Alt+R)", (*) => AwaryjneOdblokowanie())
-A_TrayMenu.Add("Wyjdź", (*) => ExitApp())
+A_TrayMenu.Add("Unlock Keys (Ctrl+Alt+R)", (*) => AwaryjneOdblokowanie())
+A_TrayMenu.Add("Exit", (*) => ExitApp())
 
 OnMessage(0x219, OnDeviceChange)
 OnMessage(0x004A, myOnHardwareStateReady)
@@ -159,7 +161,7 @@ AsynchronicznaInicjalizacja() {
     A_IconTip := "Mouse Control"
     
     stworzPowiadomienieStartowe(PobierzNazweProfilu(), TipColor(), 0)
-    stworzPowiadomienieStartowe(A_IsAdmin ? "PEŁNE UPRAWNIENIA" : "OGRANICZNONE  UPRAWNIENIA`nSkróty nie będą działać w oknach systemowych, takich jak`n Menedżer zadań.", A_IsAdmin ? "9FFB88" : "FA8072", 70)
+    stworzPowiadomienieStartowe(A_IsAdmin ? "FULL PERMISSIONS" : "RESTRICTED PERMISSIONS`nShortcuts won't work in system windows like`n Task Manager.", A_IsAdmin ? "9FFB88" : "FA8072", 70)
     
     global ih := InputHook("L1 M", "{LCtrl}{RCtrl}{LAlt}{RAlt}{LShift}{RShift}{LWin}{RWin}{BS}{ScrollLock}{Del}{Ins}{Home}{End}{PgUp}{PgDn}{Up}{Down}{Left}{Right}{CapsLock}{F1}{F2}{F3}{F4}{F5}{F6}{F7}{F8}{F9}{F10}{F11}{F12}") 
     ih.KeyOpt("{All}", "+N")
@@ -211,7 +213,7 @@ myOnHardwareStateReady(wParam, lParam, msg, hwnd) {
         GenesisActive := myNewGenesis
         if (myOldState != GenesisActive) {
             if (!IsSet(InicjalizacjaTrwa) || !InicjalizacjaTrwa)
-                PokazTip((GenesisActive ? "WYKRYTO" : "ODŁĄCZONO") . " Mysz : Genesis", GenesisActive ? "9FFB88" : "FA8072")
+                PokazTip((GenesisActive ? "DETECTED" : "DISCONNECTED") . " Mouse: Genesis", GenesisActive ? "9FFB88" : "FA8072")
             LegendaIstnieje() && AktualizujListe()
         }
     }
@@ -260,7 +262,7 @@ OnTrayMouseEvent(wParam, lParam, msg, hwnd) {
 }
 
 ; Pobiera dynamicznie wyliczoną nazwę aktywnego profilu.
-PobierzNazweProfilu() => ["AUTO: " . (GenesisActive ? "Mysz Genesis" : "Mysz Standardowa"), "MANUAL: Mysz Genesis", "MANUAL: Mysz Standardowa", "Tylko Klawiatura", "Tryb OFF (Skróty wyłączone)"][CurrentProfile + 1]
+PobierzNazweProfilu() => ["AUTO: " . (GenesisActive ? "Genesis Mouse" : "Standard Mouse"), "MANUAL: Genesis Mouse", "MANUAL: Standard Mouse", "Keyboard Only", "OFF Mode (Shortcuts disabled)"][CurrentProfile + 1]
 
 UstawProfil(nr, pokazacTip := false) {
     global CurrentProfile := nr
@@ -280,8 +282,8 @@ UstawProfil(nr, pokazacTip := false) {
 ; #region teśc popupów
 TipText := {
 AdminTip : (A_IsAdmin 
-                    ? "POZIOM UPRAWNIEŃ:`nSkrypt MA DOSTĘP do okien systemowych.`nMożesz używać skrótów wszędzie." 
-                    : "POZIOM UPRAWNIEŃ:`nSkrypt NIE MA DOSTĘPU do okien systemowych.`nSkróty nie będą tam działać.")
+                    ? "PERMISSION LEVEL:`nScript HAS ACCESS to system windows.`nYou can use shortcuts anywhere." 
+                    : "PERMISSION LEVEL:`nScript HAS NO ACCESS to system windows.`nShortcuts won't work there.")
 }
 ; #endregion
 ;----------------------------------------------------------------------------------------------------------------------------------------------
@@ -351,34 +353,34 @@ PokazUstawienia(*) {
     TaskExists := myCheckAutostartTask()
     ShortcutExists := FileExist(ShortcutPath) ? 1 : 0
     
-    GlUs := SilnikGUI("USTAWIENIA", "", {unikalny: 1, pokazPasek: 1, PadD: pad, PadR: pad, PadL: pad})
+    GlUs := SilnikGUI("SETTINGS", "", {unikalny: 1, pokazPasek: 1, PadD: pad, PadR: pad, PadL: pad})
     
     if (!GlUs.nowaInstancja) {
         GlUs.Pokaz()
         return
     }
-    szerDD := 200
+    szerDD := 190
     AdminInfoCtrl := GlUs.Add("Text", "vadmininfoU +0x0100  y+10", (A_IsAdmin ? " ADMIN " : " REGULAR "))
     AdminInfoCtrl.SetFont("bold")    
     AdminInfoCtrl.GetPos(,,&Adw)
     AdminInfoCtrl.move(((SzerOknUst+pad)-Adw)/2)
     AdminInfoCtrl.HoverAction := (*) => SilnikGUI.CustomTooltip((TipText.AdminTip), {delayoff:500, delayon:500, trybPozycji:AdminInfoCtrl, Align:"up-5", Transparent: 0.1, TransClick: 1}) ;
 
-    Tytul := GlUs.Add("Text", "Center x" . ((SzerOknUst+pad)-szerDD)/2 . " w" . szerDD, "Domyślny profil startowy:")
+    Tytul := GlUs.Add("Text", "Center y+15 x" . ((SzerOknUst+pad)-szerDD)/2 . " w" . szerDD, "Default startup profile:")
     Tytul.SetFont("norm")
     
-    StartProf := GlUs.DodajDDList(ListaProfili, 0, DefaultProfile + 1, szerDD, "x" . ((SzerOknUst+pad)-szerDD)/2 . " y+10")
-
-    Edit_BM := GlUs.DodajWierszKonfiguracji("Jasność (Mysz):", BrightnessStepMouse, {trybWalidacji: 0, minVal: 1, maxVal: 100, skok: 1, pozycja: "x20 y+25", SzerText: 140})
-    Edit_BK := GlUs.DodajWierszKonfiguracji("Jasność (Klawiatura):", BrightnessStepKbd, {trybWalidacji: 0, minVal: 1, maxVal: 100, skok: 1, pozycja: "x20 y+10", SzerText: 140})
-    Edit_VM := GlUs.DodajWierszKonfiguracji("Głośność (Mysz):", VolStepMouse, {trybWalidacji: 0, minVal: 1, maxVal: 100, skok: 1, pozycja: "x20 y+10", SzerText: 140})
-    Edit_VD := GlUs.DodajWierszKonfiguracji("Podwójny klik (s):", Format("{:.2f}", HoldThreshold), {trybWalidacji: 1, minVal: 0.05, maxVal: 1.0, skok: 0.05, pozycja: "x20 y+10", SzerText: 140})
+    StartProf := GlUs.DodajDDList(ListaProfili, 0, DefaultProfile + 1, szerDD, "x" . ((SzerOknUst+pad)-szerDD)/2 . " y+5")
+    GlUs.Ramka(Tytul, StartProf, 8)
+    Edit_BM := GlUs.DodajWierszKonfiguracji("Brightness (Mouse):", BrightnessStepMouse, {trybWalidacji: 0, minVal: 1, maxVal: 100, skok: 1, pozycja: "x20 y+20", SzerText: 140})
+    Edit_BK := GlUs.DodajWierszKonfiguracji("Brightness (Kbd):", BrightnessStepKbd, {trybWalidacji: 0, minVal: 1, maxVal: 100, skok: 1, pozycja: "x20 y+10", SzerText: 140})
+    Edit_VM := GlUs.DodajWierszKonfiguracji("Volume (Mouse):", VolStepMouse, {trybWalidacji: 0, minVal: 1, maxVal: 100, skok: 1, pozycja: "x20 y+10", SzerText: 140})
+    Edit_VD := GlUs.DodajWierszKonfiguracji("Double click (s):", Format("{:.2f}", HoldThreshold), {trybWalidacji: 1, minVal: 0.05, maxVal: 1.0, skok: 0.05, pozycja: "x20 y+10", SzerText: 140})
     GlUs.Ramka(Edit_BM, Edit_VD, 8)
 
-    StatusOpis := TaskExists ? "Status: Harmonogram (Admin)" : (ShortcutExists ? "Status: Folder Autostart (Regular)" : "Status: Wyłączony")
+    StatusOpis := TaskExists ? "Status: Task Scheduler (Admin)" : (ShortcutExists ? "Status: Startup Folder (Regular)" : "Status: Disabled")
     IsAutostartActive := TaskExists || ShortcutExists
 
-    Check_Autostart := GlUs.DodajCheckbox("Uruchamiaj ze startem systemu", {czyZaznaczony: IsAutostartActive, pozycja: "xm  y+15"})
+    Check_Autostart := GlUs.DodajCheckbox("Run at system startup", {czyZaznaczony: IsAutostartActive, pozycja: "xm  y+15"})
     Check_Autostart.OnEvent("Click", WeryfikujKlikniecieAutostartu)
     ; Czcionka statusu
     StatusTextControl := GlUs.Add("Text", "x" . Check_Autostart.LabelX . " y+2", StatusOpis)
@@ -386,12 +388,20 @@ PokazUstawienia(*) {
     ; Reset czcionki
     GlUs.GuiObj.SetFont("s10 " . SilnikGUI.Motyw.Tekst)
     
-    UprawnieniaCheckbox := GlUs.DodajCheckbox("pytaj o uprawnienia `nadministratora przy starcie", {czyZaznaczony: Uprawnienia, pozycja: "xm y+10"})
+    UprawnieniaCheckbox := GlUs.DodajCheckbox("Ask for admin permissions`non startup", {czyZaznaczony: Uprawnienia, pozycja: "xm y+10"})
 
-    Check_Podpowiedzi := GlUs.DodajCheckbox("Wyświetlaj podpowiedzi", {czyZaznaczony: PokazPodpowiedzi, pozycja: "y+10"})
+    myPriorityOptions := ["0 - Real-Time", "1 - High", "2 - Above Normal", "3 - Normal", "4 - Default"]
+    myLvlTitle := GlUs.Add("Text", "Center y+15 x" . ((SzerOknUst+pad)-szerDD)/2 . " w" . szerDD, "Admin start level:")
+    myLvlTitle.SetFont("norm")
+    myDDLCallback := (ctrl, *) => (ctrl.SelectedIndex == 1) ? SilnikGUI.CustomTooltip("⚠️ WARNING: Real-Time mode (0) can overload the CPU!`nIt may completely block mouse and keyboard input.", {delayon:500,transparent:0.1,kolorTla:"c420000",czyPogrubione: 1,kolorramki:"cff7f7f", kolorTekstu:"cff7f7f", trybPozycji: ctrl, DelayOFF: 4000, czas: 4000, Align: "+Down+10"}) : SilnikGUI.CustomTooltip()
+    myStartLvlDDL := GlUs.DodajDDList(myPriorityOptions, myDDLCallback, myAdminStartLvl + 1, szerDD, "x" . ((SzerOknUst+pad)-szerDD)/2 . " y+5")
+    myStartLvlDDL.HoverAction := (*) => myDDLCallback(myStartLvlDDL)
+    GlUs.Ramka(myLvlTitle, myStartLvlDDL, 8)
 
-    GlUs.DodajPrzycisk("Zastosuj", (*) => ZapiszIUstaw(GlUs.GuiObj, StartProf, Edit_BM, Edit_BK, Edit_VM, Edit_VD, Check_Podpowiedzi, false), "y+20 w80 h30")
-    GlUs.DodajPrzycisk("Zapisz", (*) => ZapiszIUstaw(GlUs.GuiObj, StartProf, Edit_BM, Edit_BK, Edit_VM, Edit_VD, Check_Podpowiedzi, true), "x" . (SzerOknUst-80) . " yp w80 h30")
+    Check_Podpowiedzi := GlUs.DodajCheckbox("Show tooltips", {czyZaznaczony: PokazPodpowiedzi, pozycja: "xm y+15"})
+
+    GlUs.DodajPrzycisk("Apply", (*) => ZapiszIUstaw(GlUs.GuiObj, StartProf, Edit_BM, Edit_BK, Edit_VM, Edit_VD, Check_Podpowiedzi, myStartLvlDDL, false), "y+20 w80 h30")
+    GlUs.DodajPrzycisk("Save", (*) => ZapiszIUstaw(GlUs.GuiObj, StartProf, Edit_BM, Edit_BK, Edit_VM, Edit_VD, Check_Podpowiedzi, myStartLvlDDL, true), "x" . (SzerOknUst-80) . " yp w80 h30")
     GlUs.Pokaz()
     WinActivate("ahk_id " GlUs.GuiObj.Hwnd)
     Edit_BM.Focus()
@@ -403,7 +413,7 @@ WeryfikujKlikniecieAutostartu(ctrl, *) {
     ; Blokada zmiany adania bez uprawnień
     if (TaskExists && !A_IsAdmin) {
         ctrl.Value := !ctrl.Value ; Cofnij zmianę wizualną (odbij haczyk)
-        SilnikGUI.OknoBledu("⚠️ ODMOWA DOSTĘPU", "Nie można zmienić ustawień autostartu administratora bez odpowiednich uprawnień.", "Uruchom program jako Administrator.", GlUs.GuiObj.Hwnd)
+        SilnikGUI.OknoBledu("⚠️ ACCESS DENIED", "Cannot change admin startup settings without permissions.", "Run program as Administrator.", GlUs.GuiObj.Hwnd)
     }
 }
 ZastosujZmianyAutostartu() {
@@ -424,15 +434,15 @@ ZastosujZmianyAutostartu() {
     ; 3. Cofnij zmianę przy braku uprawnień
     if (czyWlaczone != StanFaktyczny) {
         Check_Autostart.Value := StanFaktyczny 
-        SilnikGUI.OknoBledu("⚠️ ODMOWA DOSTĘPU", "Nie można zmienić ustawień autostartu administratora bez odpowiednich uprawnień.", "Uruchom program jako Administrator.", GlUs.GuiObj.Hwnd)
+        SilnikGUI.OknoBledu("⚠️ ACCESS DENIED", "Cannot change admin startup settings without permissions.", "Run program as Administrator.", GlUs.GuiObj.Hwnd)
     }
 
     ; 4. Aktualizacja terści
-    NowyStatus := TaskExists ? "Status: Harmonogram (Admin)" : (ShortcutExists ? "Status: Folder Autostart (Regular)" : "Status: Wyłączony")
+    NowyStatus := TaskExists ? "Status: Task Scheduler (Admin)" : (ShortcutExists ? "Status: Startup Folder (Regular)" : "Status: Disabled")
     StatusTextControl.Value := NowyStatus
 }
-ZapiszIUstaw(G, D, BM, BK, VM, VD, CP, ZamknijOkno := true) {
-    global DefaultProfile, BrightnessStepMouse, BrightnessStepKbd, VolStepMouse, HoldThreshold, PokazPodpowiedzi, IniPath, Uprawnienia, UprawnieniaCheckbox, Check_Autostart
+ZapiszIUstaw(G, D, BM, BK, VM, VD, CP, SL, ZamknijOkno := true) {
+    global DefaultProfile, BrightnessStepMouse, BrightnessStepKbd, VolStepMouse, HoldThreshold, PokazPodpowiedzi, IniPath, Uprawnienia, UprawnieniaCheckbox, Check_Autostart, myAdminStartLvl
     
     ; 1. Pobranie wartości (SilnikGUI gwarantuje typ i zakres)
     DefaultProfile      := D.SelectedIndex - 1 
@@ -442,10 +452,12 @@ ZapiszIUstaw(G, D, BM, BK, VM, VD, CP, ZamknijOkno := true) {
     HoldThreshold       := Number(StrReplace(VD.Value, ",", ".")) ; Safety check dla float
     PokazPodpowiedzi    := CP.Value
     Uprawnienia         := UprawnieniaCheckbox.Value
+    myAdminStartLvl     := SL.SelectedIndex - 1
 
     ; 2. Zapis INI
     IniWrite(DefaultProfile, IniPath, "Settings", "DefaultProfile") 
     IniWrite(Uprawnienia, IniPath, "Settings", "Uprawnienia")
+    IniWrite(myAdminStartLvl, IniPath, "Settings", "AdminStartLvl")
     IniWrite(PokazPodpowiedzi, IniPath, "Settings", "PokazPodpowiedzi")
     IniWrite(BrightnessStepMouse, IniPath, "Settings", "BrightnessStepMouse") 
     IniWrite(BrightnessStepKbd, IniPath, "Settings", "BrightnessStepKbd") 
@@ -456,10 +468,11 @@ ZapiszIUstaw(G, D, BM, BK, VM, VD, CP, ZamknijOkno := true) {
 
     if (ZamknijOkno)
         WinClose("ahk_id " G.Hwnd)
-    PokazTip(ZamknijOkno ? "Ustawienia Zapisane!" : "Zastosowano ustawienia", "9FFB88")
+    PokazTip(ZamknijOkno ? "Settings Saved!" : "Settings applied", "9FFB88")
 }
 
 ManageAutostart(enable) { 
+    global myAdminStartLvl
     TaskName := "MouseCtrlAutostart"
     ShortcutPath := myCachedStartupPath
     
@@ -476,12 +489,12 @@ ManageAutostart(enable) {
 
                 ; Nowe zadanie
                 TaskDef := Service.NewTask(0)
-                TaskDef.RegistrationInfo.Description := "Uruchamia Mouse Control z uprawnieniami administratora"
+                TaskDef.RegistrationInfo.Description := "Runs Mouse Control with admin permissions"
                 TaskDef.RegistrationInfo.Author := "MouseCtrl"
                 
                 ; Konfiguracja: Admin, Priorytet, Bateria
                 TaskDef.Principal.RunLevel := 1 ; (admin=1/normal=0)
-                TaskDef.Settings.Priority := 0  ; 4 = Normal
+                TaskDef.Settings.Priority := myAdminStartLvl
                 TaskDef.Settings.DisallowStartIfOnBatteries := false
                 TaskDef.Settings.StopIfGoingOnBatteries := false
                 TaskDef.Settings.ExecutionTimeLimit := "PT0S" ; Brak limitu czasu
@@ -501,7 +514,7 @@ ManageAutostart(enable) {
                 ; Zapis (Aktualizacja)
                 RootFolder.RegisterTaskDefinition(TaskName, TaskDef, 6, "", "", 3)
             } catch as err {
-                MsgBox("Nie udało się utworzyć harmonogramu: " . err.Message, "Błąd", "Icon!")
+                MsgBox("Failed to create scheduled task: " . err.Message, "Error", "Icon!")
             }
 
             if FileExist(ShortcutPath)
@@ -561,7 +574,7 @@ PokazListeSkrotow(*) {
     SzerkokośćOknaLegendy := WymiaryLegendy.Total
     
     ; 3. Inicjalizacja GUI
-    LegendaGui := Gui("+AlwaysOnTop +Border -Caption", "LEGENDA")
+    LegendaGui := Gui("+AlwaysOnTop +Border -Caption", "LEGEND")
     kolorTla := KolorMotywu
     LegendaGui.BackColor := kolorTla
     GruboscRamki := 2
@@ -596,11 +609,11 @@ PokazListeSkrotow(*) {
     
     ; Stopka
     LegendaGui.SetFont("s13 bold")
-    GuiControls.BtnSettings := LegendaGui.Add("Text", "w140 h30 Center Background" . KolorPrzycisku . " " . KolorTekst . " +Border +0x0200", "Ustawienia (F1)")
+    GuiControls.BtnSettings := LegendaGui.Add("Text", "w140 h30 Center Background" . KolorPrzycisku . " " . KolorTekst . " +Border +0x0200", "Settings (F1)")
     GuiControls.BtnSettings.OnEvent("Click", (*) => (PokazUstawienia(), LegendaGui.Hide()))
     
     LegendaGui.SetFont("s9", "Segoe UI")
-    GuiControls.Exit := LegendaGui.Add("Text", "Center x0 c" . KolorNieaktywny, "(Kliknij na to okno, aby zamknąć)")
+    GuiControls.Exit := LegendaGui.Add("Text", "Center x0 c" . KolorNieaktywny, "(Click this window to close)")
     
     AktualizujListe()
     UsunTip()
@@ -658,7 +671,7 @@ AktualizujListe() {
 ; ============================================================================================================================================================
 
 AktualizujSekcje(tekst, ctrlL, ctrlR, ctrlC, kolor) {
-    if (tekst = "Skróty nieaktywne") {
+    if (tekst = "Shortcuts disabled") {
         ctrlL.Visible := false, ctrlR.Visible := false
         ctrlC.Visible := true, ctrlC.Value := tekst
         if (kolor != "")
@@ -729,7 +742,7 @@ OdswiezSekcje(yStart, cHead, cL, cR, cC, txtHead, txtContent, kolor, wL, wR, wSi
     cL.Move(startX, yPoNaglowku, wL, hRealContent)
     cR.Move(startX + wL, yPoNaglowku, wR, hRealContent)
     
-    if (txtContent == "Skróty nieaktywne") {
+    if (txtContent == "Shortcuts disabled") {
         cC.Move((SzerkokośćOknaLegendy - wSingle) / 2, yPoNaglowku, wSingle, hRealContent)
     } else {
         cC.Move(0, yPoNaglowku, SzerkokośćOknaLegendy, hRealContent)
@@ -747,17 +760,17 @@ TrescLegendy(profil, genesisState) {
     dane := {Header: "", KlawHeader: "", KlawText: "", MyszHeader: "", MyszText: "", KlawKolor: KolorTekst, MyszKolor: KolorTekst}
     
     ; Definicje tekstów
-    txtKlawiatura := "Ctrl+Alt+R = Odblokuj klawisze`nCtrl+Alt+P = PrintScreen`nCtrl+F1/F2 = Jasność`nCtrl+F12 = Zmień profil`nShift + `` = ~"
-    txtGenesis    := "Prawy = Shift`nPrawy + Wheel = Głośność`nPrawy + Środkowy = Wycisz`nX1+Wheel = Jasność`nX1 + Prawy = Wygaszenie`nX1(2x) = Esc`nX1(2xHold) + Wheel  🡱 🡳 = 🡰 🡲`nX2(Hold) = Ctrl`nX2(2x) = Zapisz`nX2(2xHold) + Wheel  🡱 🡳 = Wheel  🡰 🡲`nX2 + X1 + Wheel  🡱 🡳 = Cofnij / Ponów`nAlt + Wheel  🡱 🡳 =    - | | -`nX2 + Lewy = Ctrl+V`nX2 + Lewy(Hold) = Lewy+Ctrl+V`nX2 + Prawy = Ctrl+C`nX2 + Prawy(Hold) = Ctrl+X`nX2 + Prawy(2x) = Lewy+Ctrl+C`nX2 + Prawy(2xHold) = Lewy+Ctrl+X"
-    txtStandard   := "Prawy = Shift`nPrawy + Wheel = Głośność`nPrawy + Środkowy = Wycisz`nPrawy + Lewy = Alt+Tab`nLewy + Wheel = Jasność`nLewy + Środkowy = Wygaszenie`nMButton + Wheel  🡱 🡳 = Wheel  🡰 🡲"
+    txtKlawiatura := "Ctrl+Alt+R = Unlock keys`nCtrl+Alt+P = PrintScreen`nCtrl+F1/F2 = Brightness`nCtrl+F12 = Change profile`nShift + `` = ~"
+    txtGenesis    := "Right = Shift`nRight + Wheel = Volume`nRight + Middle = Mute`nX1+Wheel = Brightness`nX1 + Right = Screen off`nX1(2x) = Esc`nX1(2xHold) + Wheel  🡱 🡳 = 🡰 🡲`nX2(Hold) = Ctrl`nX2(2x) = Save`nX2(2xHold) + Wheel  🡱 🡳 = Wheel  🡰 🡲`nX2 + X1 + Wheel  🡱 🡳 = Undo / Redo`nAlt + Wheel  🡱 🡳 =    - | | -`nX2 + Left = Ctrl+V`nX2 + Left(Hold) = Left+Ctrl+V`nX2 + Right = Ctrl+C`nX2 + Right(Hold) = Ctrl+X`nX2 + Right(2x) = Left+Ctrl+C`nX2 + Right(2xHold) = Left+Ctrl+X"
+    txtStandard   := "Right = Shift`nRight + Wheel = Volume`nRight + Middle = Mute`nRight + Left = Alt+Tab`nLeft + Wheel = Brightness`nLeft + Middle = Screen off`nMButton + Wheel  🡱 🡳 = Wheel  🡰 🡲"
 
     ; Wartości domyślne
     dane.Header     := (profil == 0) ? "AUTO" : ((profil == 4) ? "" : "MANUAL")
-    dane.KlawHeader := (profil == 4) ? "WSZYSTKO WYŁĄCZONE" : "— KLAWIATURA —"
-    dane.KlawText   := (profil == 4) ? "Skróty nieaktywne" : txtKlawiatura
+    dane.KlawHeader := (profil == 4) ? "ALL DISABLED" : "— KEYBOARD —"
+    dane.KlawText   := (profil == 4) ? "Shortcuts disabled" : txtKlawiatura
     dane.KlawKolor  := (profil == 4) ? "c" . KolorWarn : KolorTekst
-    dane.MyszHeader := [(genesisState ? "—  MYSZ GENESIS —" : "— MYSZ STANDARD —"), "—  MYSZ GENESIS —", "— MYSZ STANDARD —", "--- MYSZ ---", ""][profil + 1]
-    dane.MyszText   := [(genesisState ? txtGenesis : txtStandard), txtGenesis, txtStandard, "Skróty nieaktywne", ""][profil + 1]
+    dane.MyszHeader := [(genesisState ? "— GENESIS MOUSE —" : "— STANDARD MOUSE —"), "— GENESIS MOUSE —", "— STANDARD MOUSE —", "--- MOUSE ---", ""][profil + 1]
+    dane.MyszText   := [(genesisState ? txtGenesis : txtStandard), txtGenesis, txtStandard, "Shortcuts disabled", ""][profil + 1]
     dane.MyszKolor  := (profil == 3) ? "c" . KolorNieaktywny : KolorTekst
     return dane
 }
@@ -806,7 +819,7 @@ ObliczSzerokoscLegendy(dane) {
 
     ; Pomiar stopki (S9)
     dummyGui.SetFont("s9", "Segoe UI")
-    MierzElement("(Kliknij na to okno, aby zamknąć)", &wExit)
+    MierzElement("(Click this window to close)", &wExit)
     
     dummyGui.Destroy()
     
@@ -881,7 +894,7 @@ ZmianaJasnosci(delta) {
         for method in ComObjGet("winmgmts:\\.\root\WMI").ExecQuery("SELECT * FROM WmiMonitorBrightnessMethods")
             method.WmiSetBrightness(0, currentBrightness)
     }
-    SilnikGUI.CustomTooltip("Jasność: " . currentBrightness . "%  ◑", {czas: 1500})
+    SilnikGUI.CustomTooltip("Brightness: " . currentBrightness . "%  ◑", {czas: 1500})
 }
 
 ZmianaGlosnosci(delta) {
@@ -923,7 +936,7 @@ WygasEkran(klawisz := "LButton") {
         return
     }
 
-    SilnikGUI.CustomTooltip("PUŚĆ PRZYCISKI")
+    SilnikGUI.CustomTooltip("RELEASE BUTTONS")
     KeyWait(klawisz)
     KeyWait("MButton") ; Dodatkowa blokada, aby przypadkowe puszczenie przycisku nie wybudziło ekranu
     SilnikGUI.CustomTooltip()
@@ -937,9 +950,9 @@ WygasEkran(klawisz := "LButton") {
         BlackScreenGui.SetFont("s25 c3a3a3a")
         ZegarCtrl := BlackScreenGui.Add("Text", "x0 y50 w" A_ScreenWidth " Center Hidden", FormatTime(,"dd.MM.yyyy") "`n" FormatTime(,"HH:mm:ss"))
         
-        kombinacjaKlawiszy := (klawisz = "XButton1") ? "X1 + PRAWY" : "LEWY + ŚRODKOWY"
+        kombinacjaKlawiszy := (klawisz = "XButton1") ? "X1 + RIGHT" : "LEFT + MIDDLE"
         BlackScreenGui.SetFont("s35 bold")
-        tekstInfo := BlackScreenGui.Add("Text", "x0 y" (A_ScreenHeight // 2 - 100) " w" A_ScreenWidth " Center Hidden", "NACIŚNIJ PONOWNIE`n`n" kombinacjaKlawiszy "`n`nABY ODBLOKOWAĆ")
+        tekstInfo := BlackScreenGui.Add("Text", "x0 y" (A_ScreenHeight // 2 - 100) " w" A_ScreenWidth " Center Hidden", "PRESS AGAIN`n`n" kombinacjaKlawiszy "`n`nTO UNLOCK")
         
         SetTimer(() => (ZegarCtrl ? tekstInfo.Visible := ZegarCtrl.Visible := true : 0), -1000) ; Safe-check
         SetTimer(OdswiezZegar, 1000)
@@ -1002,7 +1015,7 @@ myBindLateHotkeys() {
 
     ; --- KLAWIATURA ---
     HotIf((*) => CurrentProfile != 4)
-    Hotkey("^!p", (*) => (SilnikGUI.CustomTooltip("Zrzut ekranu 📸", {Transparent: 0.2,trybPozycji:"Screen",Align:"Up+20",rozmiarCzcionki: 25,DelayON:50,czas: 1500}), Wyslij("{PrintScreen}")), "On")
+    Hotkey("^!p", (*) => (SilnikGUI.CustomTooltip("Screenshot 📸", {Transparent: 0.2,trybPozycji:"Screen",Align:"Up+20",rozmiarCzcionki: 25,DelayON:50,czas: 1500}), Wyslij("{PrintScreen}")), "On")
     Hotkey("^F1", (*) => ZmianaJasnosci(-BrightnessStepKbd), "On")
     Hotkey("^F2", (*) => ZmianaJasnosci(BrightnessStepKbd), "On")
     Hotkey("+" . Chr(96), (*) => SendText("~"), "On") ; Shift + `
@@ -1070,9 +1083,9 @@ myLegendaLButton(*) {
 myGenesisXButton1(*) {
     Multiklik("XButton1", 
         (*) => Wyslij("{XButton1}"),
-        (*) => (!PokazPodpowiedzi ? (SilnikGUI.CustomTooltip("Jasność: " . currentBrightness . "%  ◑", {ON: !EkranWygaszony, czas: 1500})) : (SilnikGUI.CustomTooltip("SCROLL  ➠  ZMIANA JASNOŚCI  ◑`n..`nŚRODKOWY  ➠  WYGASZENIE  💻`n.[2].`n(x2)  ➠  ESC  🡰`n..`n(2xHOLD)+SCROLL  🡱 🡳  ➠  STRZAŁKI  🡰 🡲`n.[2].`nJasność: " . currentBrightness . "%  ◑", {ON: !EkranWygaszony, MargPoz: 4})), MouseCtrlLib.AktywujTrybKola((*) => ZmianaJasnosci(BrightnessStepMouse), (*) => ZmianaJasnosci(-BrightnessStepMouse),(*) => Hotkey("*RButton", (*) => (UsunTip(), WygasEkran("XButton1")), "On"), (*) => Hotkey("*RButton", (*) => AkcjaRButton(), "On"), 0, "XButton1"), SilnikGUI.CustomTooltip("")),
+        (*) => (!PokazPodpowiedzi ? (SilnikGUI.CustomTooltip("Brightness: " . currentBrightness . "%  ◑", {ON: !EkranWygaszony, czas: 1500})) : (SilnikGUI.CustomTooltip("SCROLL  ➠  BRIGHTNESS  ◑`n..`nMIDDLE  ➠  SCREEN OFF  💻`n.[2].`n(x2)  ➠  ESC  🡰`n..`n(2xHOLD)+SCROLL  🡱 🡳  ➠  ARROWS  🡰 🡲`n.[2].`nBrightness: " . currentBrightness . "%  ◑", {ON: !EkranWygaszony, MargPoz: 4})), MouseCtrlLib.AktywujTrybKola((*) => ZmianaJasnosci(BrightnessStepMouse), (*) => ZmianaJasnosci(-BrightnessStepMouse),(*) => Hotkey("*RButton", (*) => (UsunTip(), WygasEkran("XButton1")), "On"), (*) => Hotkey("*RButton", (*) => AkcjaRButton(), "On"), 0, "XButton1"), SilnikGUI.CustomTooltip("")),
         (*) => Wyslij("{Escape}", true),
-        (*) => (SilnikGUI.CustomTooltip("SCROLL  🡱 🡳   ➠  STRZAŁKI  🡰 🡲", {ON: (!EkranWygaszony && PokazPodpowiedzi)}), UstawFocusPodMysz(), MouseCtrlLib.AktywujTrybKola((*) => Wyslij("{Left}", true), (*) => Wyslij("{Right}", true), 0, 0, () => SilnikGUI.CustomTooltip(""), "XButton1"), SilnikGUI.CustomTooltip("")),
+        (*) => (SilnikGUI.CustomTooltip("SCROLL  🡱 🡳   ➠  ARROWS  🡰 🡲", {ON: (!EkranWygaszony && PokazPodpowiedzi)}), UstawFocusPodMysz(), MouseCtrlLib.AktywujTrybKola((*) => Wyslij("{Left}", true), (*) => Wyslij("{Right}", true), 0, 0, () => SilnikGUI.CustomTooltip(""), "XButton1"), SilnikGUI.CustomTooltip("")),
         HoldThreshold
     )
 }
@@ -1080,7 +1093,7 @@ myGenesisXButton1(*) {
 myGenesisXButton2(*) {
     Multiklik("XButton2",
         (*) => Wyslij("{XButton2}"),
-            (*) => (SilnikGUI.CustomTooltip("CTRL  ✲`n..`nSCROLL  🡱 🡳  ➠  ZOOM   ( + ) 🔍 ( - )`n.[4].`n- L E W Y -`n.[3].`n(x2) ➠  CTRL+V  📄`n..`n(2xHOLD)  ➠  CTRL+V+LEWY  📄🡳`n.[4].`n- P R A W Y -`n.[3].`n(x1)  ➠  CTRL+C  📄📄`n..`n(HOLD)  ➠  CTRL+X  ✂`n..`n(x2)  ➠  CTRL+C+LEWY   📄📄🡳`n..`n(2xHOLD)  ➠  CTRL+X+LEWY  ✂🡳`n.[4].`nX1+SCROLL  🡱 🡳  ➠  CTRL+Z/Y  🡷 🡵`n.[3].`n(x2)  ➠  CTRL+SHIFT+S  ✍`n..`n(2xHOLD)+SCROLL  🡱 🡳  ➠  SCROLL  🞀 ❘❙❚❙❘ 🞂", {ON: (!EkranWygaszony && PokazPodpowiedzi), MargPoz: 2}), MouseCtrlLib.AktywujTrybKola((*) => Wyslij("{WheelUp}"), (*) => Wyslij("{WheelDown}"), (*) => Wyslij("{Ctrl Down}"), (*) => Wyslij("{Ctrl Up}"), () => SilnikGUI.CustomTooltip(""), "XButton2"), SilnikGUI.CustomTooltip("")),
+            (*) => (SilnikGUI.CustomTooltip("CTRL  ✲`n..`nSCROLL  🡱 🡳  ➠  ZOOM   ( + ) 🔍 ( - )`n.[4].`n- L E F T -`n.[3].`n(x2) ➠  CTRL+V  📄`n..`n(2xHOLD)  ➠  CTRL+V+LEFT  📄🡳`n.[4].`n- R I G H T -`n.[3].`n(x1)  ➠  CTRL+C  📄📄`n..`n(HOLD)  ➠  CTRL+X  ✂`n..`n(x2)  ➠  CTRL+C+LEFT   📄📄🡳`n..`n(2xHOLD)  ➠  CTRL+X+LEFT  ✂🡳`n.[4].`nX1+SCROLL  🡱 🡳  ➠  CTRL+Z/Y  🡷 🡵`n.[3].`n(x2)  ➠  CTRL+SHIFT+S  ✍`n..`n(2xHOLD)+SCROLL  🡱 🡳  ➠  SCROLL  🞀 ❘❙❚❙❘ 🞂", {ON: (!EkranWygaszony && PokazPodpowiedzi), MargPoz: 2}), MouseCtrlLib.AktywujTrybKola((*) => Wyslij("{WheelUp}"), (*) => Wyslij("{WheelDown}"), (*) => Wyslij("{Ctrl Down}"), (*) => Wyslij("{Ctrl Up}"), () => SilnikGUI.CustomTooltip(""), "XButton2"), SilnikGUI.CustomTooltip("")),
         (*) => Wyslij("^a", true),
             (*) => (SilnikGUI.CustomTooltip("SCROLL  🡱 🡳  ➠  SCROLL  🞀 ❘❙❚❙❘ 🞂", {ON: (!EkranWygaszony && PokazPodpowiedzi)}), MouseCtrlLib.AktywujTrybKola((*) => (SendLevel(1), Wyslij("{WheelLeft}", true)), (*) => (SendLevel(1), Wyslij("{WheelRight}", true)), 0, 0, () => SilnikGUI.CustomTooltip(""), "XButton2"), SilnikGUI.CustomTooltip("")),
         HoldThreshold
@@ -1132,7 +1145,7 @@ LButtonStandardTip(czasUspienia := HoldThreshold*1000) {
     if !(CurrentProfile = 2 or (CurrentProfile = 0 and !GenesisActive))
         return
 
-    (!PokazPodpowiedzi) ? (SilnikGUI.CustomTooltip("Jasność: " . currentBrightness . "%  ◑", {DelayON: czasUspienia, ON: !EkranWygaszony, czas: 1500})) : SilnikGUI.CustomTooltip("SCROLL  ➠  ZMIANA JASNOŚCI  ◑`n.[1].`nŚRODKOWY  ➠  WYGASZENIE  💻`n.[1].`nPRAWY  ➠  ALT+TAB`n.[2].`nJasność: " . currentBrightness . "%  ◑", {DelayON : czasUspienia, ON: !EkranWygaszony})
+    (!PokazPodpowiedzi) ? (SilnikGUI.CustomTooltip("Brightness: " . currentBrightness . "%  ◑", {DelayON: czasUspienia, ON: !EkranWygaszony, czas: 1500})) : SilnikGUI.CustomTooltip("SCROLL  ➠  BRIGHTNESS  ◑`n.[1].`nMIDDLE  ➠  SCREEN OFF  💻`n.[1].`nRIGHT  ➠  ALT+TAB`n.[2].`nBrightness: " . currentBrightness . "%  ◑", {DelayON : czasUspienia, ON: !EkranWygaszony})
     KeyWait("LButton")
     SilnikGUI.CustomTooltip()
 }
@@ -1151,7 +1164,7 @@ Wyslij(Klawisze, Event := false) {
 
 ; Funkcja pomocnicza dla AkcjaRButton, wywoływana przy przytrzymaniu
 _AkcjaRButton_Hold() {
-    PokazDymek := () => !PokazPodpowiedzi ? (SilnikGUI.CustomTooltip(PobierzStatusAudio(), {ON: !EkranWygaszony, czas: 1500})) : SilnikGUI.CustomTooltip("SHIFT  🡱`n..`n" . ((CurrentProfile = 1 or (CurrentProfile = 0 and GenesisActive))? "X1  ➠  Alt+Tab`nX2  ➠  Shift+Alt+Tab`n..`n" : "LEWY  ➠  Alt+Tab`n..`n") . "SCROLL  🡱 🡳  ➠  VOLUME(+/-)`nŚRODKOWY  ➠  WYCISZ  🔉X`n.[2].`n" . PobierzStatusAudio(), {ON: !EkranWygaszony}) 
+    PokazDymek := () => !PokazPodpowiedzi ? (SilnikGUI.CustomTooltip(PobierzStatusAudio(), {ON: !EkranWygaszony, czas: 1500})) : SilnikGUI.CustomTooltip("SHIFT  🡱`n..`n" . ((CurrentProfile = 1 or (CurrentProfile = 0 and GenesisActive))? "X1  ➠  Alt+Tab`nX2  ➠  Shift+Alt+Tab`n..`n" : "LEFT  ➠  Alt+Tab`n..`n") . "SCROLL  🡱 🡳  ➠  VOLUME(+/-)`nMIDDLE  ➠  MUTE  🔉X`n.[2].`n" . PobierzStatusAudio(), {ON: !EkranWygaszony}) 
     CzyscDymek := (*) => SilnikGUI.CustomTooltip()
 
     ; Timer dymka
@@ -1199,7 +1212,7 @@ AwaryjneOdblokowanie() {
             sekwencja .= "{" k " Up}"
     if (sekwencja != "")
         Send("{Blind}" sekwencja)
-    SilnikGUI.CustomTooltip("ODBLOKOWANO`nKLAWISZE", {Transparent: 0.2, trybPozycji:"Screen",Align:"UP+20",czas: 2000,rozmiarCzcionki: 25})
+    SilnikGUI.CustomTooltip("KEYS`nUNLOCKED", {Transparent: 0.2, trybPozycji:"Screen",Align:"UP+20",czas: 2000,rozmiarCzcionki: 25})
 }
 
 ; #endregion
