@@ -5,7 +5,7 @@
 A_MaxHotkeysPerInterval := 200 ; Anti-spam scrolla
 ProcessSetPriority "High"
 DllCall("User32\ChangeWindowMessageFilterEx", "Ptr", A_ScriptHwnd, "UInt", 0x0044, "UInt", 1, "Ptr", 0) ; Przepustka UIPI dla restartu (#SingleInstance)
-#Include "..\TimeLog.ahk"
+#Include "..\AHK2_My_libs\TimeLog.ahk"
 
 QPC("START")
 
