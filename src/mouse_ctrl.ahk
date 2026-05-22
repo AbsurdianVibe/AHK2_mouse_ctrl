@@ -141,7 +141,7 @@ A_TrayMenu.Add("Odblokuj Klawisze (Ctrl+Alt+R)", (*) => AwaryjneOdblokowanie())
 A_TrayMenu.Add("Wyjdź", (*) => ExitApp())
 
 OnMessage(0x219, OnDeviceChange)
-OnMessage(0x5555, myOnHardwareStateReady)
+OnMessage(0x004A, myOnHardwareStateReady)
 
 QPC("Boot: Konfiguracja Tray zakonczona")
 
@@ -232,11 +232,19 @@ myFetchHardwareState() {
 }
 
 myOnHardwareStateReady(wParam, lParam, msg, hwnd) {
+    if (NumGet(lParam, 0, "UPtr") != 0x5555) ; dwData (Signature check)
+        return
+        
     global GenesisActive, currentBrightness, CurrentProfile, InicjalizacjaTrwa
-    myIniPath := A_ScriptDir . "\myHardwareState.ini"
     
-    myNewGenesis := Number(IniRead(myIniPath, "State", "GenesisActive", GenesisActive))
-    currentBrightness := Number(IniRead(myIniPath, "State", "Brightness", currentBrightness))
+    myStringPtr := NumGet(lParam, A_PtrSize * 2, "UPtr")
+    myPayload := StrGet(myStringPtr, "UTF-16")
+    myParts := StrSplit(myPayload, "|")
+    if (myParts.Length < 2)
+        return 1
+        
+    myNewGenesis := Number(myParts[1])
+    currentBrightness := Number(myParts[2])
     
     if (CurrentProfile == 0) {
         myOldState := GenesisActive
@@ -247,6 +255,7 @@ myOnHardwareStateReady(wParam, lParam, msg, hwnd) {
             LegendaIstnieje() && AktualizujListe()
         }
     }
+    return 1 ; Confirm receipt
 }
 ; #endregion
 ;----------------------------------------------------------------------------------------------------------------------------------------------
