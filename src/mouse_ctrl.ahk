@@ -1,34 +1,14 @@
 ﻿#Requires AutoHotkey v2.0
-; test commit
-; TODO: Zmiana wskaźnika głośności na dymek %
 #SingleInstance Force
 A_MaxHotkeysPerInterval := 200 ; Anti-spam scrolla
 ProcessSetPriority "High"
 DllCall("User32\ChangeWindowMessageFilterEx", "Ptr", A_ScriptHwnd, "UInt", 0x0044, "UInt", 1, "Ptr", 0) ; Przepustka UIPI dla restartu (#SingleInstance)
-#Include "..\AHK2_My_libs\TimeLog.ahk"
-
-QPC("START")
-
-global SplashRozruch := Gui("-Caption +AlwaysOnTop +ToolWindow +E0x08000000")
-SplashRozruch.BackColor := "363533"
-SplashRozruch.SetFont("s20 cb4b4b4", "Segoe UI") ;KolorTekst
-SplashRozruch.Add("Text", "Center w500 y15", "MouseCtrl: Wczytywanie modułów...")
-SplashRozruch.Add("Text", "Center w500 y+5", "Profil: ?")
-SplashRozruch.Show("NA w 500 y0")
-QPC("Boot: Wyswietlenie SplashRozruch")
-
-class _StoperStart {
-    static __New() {
-        global StartZakonczony := false ; TARCZA: Blokada skrótów sprzętowych na czas ładowania interpretera
-    }
-}
 
 #Include "..\AHK2_external_code\UIA.ahk"
 #Include "..\AHK2_Colorful_GUI\AHK2ColorfulGUI.ahk"
 #Include "mouse_ctrl_lib.ahk"
 #Include "..\AHK2_My_libs\MojeFunkcje.ahk"
 
-QPC("Boot: Ladowanie bibliotek zakonczone")
 
 ; #region --- SPRAWDZANIE UPRAWNIEŃ ---
 ; TODO: Fix skalowania (refaktor legendy do silnika)
@@ -43,7 +23,6 @@ global Uprawnienia := Number(IniRead(IniPath, "Settings", "Uprawnienia", 1))
 if (!A_IsAdmin && Uprawnienia && !RegExMatch(DllCall("GetCommandLine", "str"), " /restart(?!\S)"))
     try Run('*RunAs "' . (A_IsCompiled ? A_ScriptFullPath . '" /restart' : A_AhkPath . '" /restart "' . A_ScriptFullPath . '"')), ExitApp()
 
-QPC("Boot: Weryfikacja UAC zakonczona")
 ; #endregion
 ;----------------------------------------------------------------------------------------------------------------------------------------------
 ; #region --- INICJALIZACJA I PLIK INI ---
@@ -63,8 +42,6 @@ if !FileExist(IniPath) { ; Init default INI
 ; Wczytywanie ustawień
 class DaneGlobalne {
     static __New() {
-        QPC("DaneGlobalne: Start inicjalizacji")
-        
         try Sekcja := IniRead(IniPath, "Settings")
         catch 
             Sekcja := ""
@@ -116,14 +93,12 @@ class DaneGlobalne {
         global KolorPrzycisku  := SilnikGUI.Motyw.Przycisk
         global ParametrFocus   := SilnikGUI.Motyw.ParamFocus
         OnExit(ZapiszStanSprzetowy)
-        QPC("DaneGlobalne: Koniec inicjalizacji")
     }
 }
 
 OnMessage(0x0200, ObslugaTooltipow)
 OnMessage(0x211, DetectMenuEntry) ; WM_ENTERMENULOOP
 DetectMenuEntry(wParam, lParam, msg, hwnd) => UsunTip()
-QPC("Boot: Rejestracja OnMessage")
 ; #endregion
 ;----------------------------------------------------------------------------------------------------------------------------------------------
 ; #region --- KONFIGURACJA MENU TRAY ---
@@ -143,8 +118,6 @@ A_TrayMenu.Add("Wyjdź", (*) => ExitApp())
 OnMessage(0x219, OnDeviceChange)
 OnMessage(0x004A, myOnHardwareStateReady)
 
-QPC("Boot: Konfiguracja Tray zakonczona")
-
 ; #endregion
 ;----------------------------------------------------------------------------------------------------------------------------------------------
 ; #region --- STARTOWE POWIADOMIENIA I DETEKCJA ---
@@ -152,53 +125,41 @@ OnMessage(0x404, OnTrayMouseEvent) ; Obsługa najechania myszą na ikonę
 global klawiszeZamykajace := ["~LButton", "~MButton", "~RButton Up", "~WheelUP", "~WheelDown", "~XButton1", "~XButton2"]
 
 ZamknijWszystkie(*) {
-    QPC("ZamknijWszystkie: START")
-    global AktywneOkna, ih, StartZakonczony
+    global AktywneOkna, ih
+    static myAppReady := false
+    if (myAppReady)
+        return
+    myAppReady := true
+
     (IsSet(ih) && ih is InputHook && ih.Stop())
-    QPC("ZamknijWszystkie: InputHook zatrzymany")
     for okno in AktywneOkna {
         try okno.Destroy()
-        QPC("ZamknijWszystkie: Zniszczono okno powiadomienia")
     }
     AktywneOkna := []
     
     for klawisz in klawiszeZamykajace
-        Hotkey(klawisz, ZamknijWszystkie, "Off")
+        Hotkey(klawisz, "Off")
     
-    StartZakonczony := true ; SHIELD OFF: Enable profile hotkeys
-    QPC("ZamknijWszystkie: KONIEC (Zdjete Hotkeye)")
+    myBindLateHotkeys() ; [STRATEGIA 4] LATE BINDING: Absolute zero race conditions
 }
 
 stworzPowiadomienieStartowe(tekst, kolor, yPoz) => AktywneOkna.Push(GenerujGuiPowiadomienia(tekst, kolor, yPoz))
 
-; SHIELD REMAINS ON: Hardware hotkeys are blocked until Splash Screen is closed
-global StartZakonczony := false
 SetTimer(AsynchronicznaInicjalizacja, -1) ; Uruchom WMI w tle
-QPC("Boot: KONIEC AUTO-EXECUTE (Przekazanie do Async)")
 
 AsynchronicznaInicjalizacja() {
-    QPC("Async: Start")
-    
     myWorkerPath := A_ScriptDir . "\myPreWarmWorker.ahk"
     try Run('"' . A_AhkPath . '" "' . myWorkerPath . '"')
-    QPC("Async: Oddelegowano InicjalizujSilnik do myPreWarmWorker")
     
     
-    ; Cache Shell API path while Splash is visible
+    ; Cache Shell API path
     global myCachedStartupPath := A_Startup . "\mouse_ctrl.lnk"
-    QPC("Async: Cache sciezki A_Startup")
     
     global InicjalizacjaTrwa := false
     A_IconTip := "Mouse Control"
     
-    global SplashRozruch
-    if IsSet(SplashRozruch) && SplashRozruch
-        SplashRozruch.Destroy()
-    QPC("Async: Zniszczenie SplashRozruch")
-        
     stworzPowiadomienieStartowe(PobierzNazweProfilu(), TipColor(), 0)
     stworzPowiadomienieStartowe(A_IsAdmin ? "PEŁNE UPRAWNIENIA" : "OGRANICZNONE  UPRAWNIENIA`nSkróty nie będą działać w oknach systemowych, takich jak`n Menedżer zadań.", A_IsAdmin ? "9FFB88" : "FA8072", 70)
-    QPC("Async: Wyswietlenie powiadomien startowych")
     
     global ih := InputHook("L1 M", "{LCtrl}{RCtrl}{LAlt}{RAlt}{LShift}{RShift}{LWin}{RWin}{BS}{ScrollLock}{Del}{Ins}{Home}{End}{PgUp}{PgDn}{Up}{Down}{Left}{Right}{CapsLock}{F1}{F2}{F3}{F4}{F5}{F6}{F7}{F8}{F9}{F10}{F11}{F12}") 
     ih.KeyOpt("{All}", "+N")
@@ -209,7 +170,6 @@ AsynchronicznaInicjalizacja() {
         Hotkey(klawisz, ZamknijWszystkie, "On")
         
     SetTimer(myDeferredInit, -1)
-    QPC("Async: Koniec (Zapiecie hookow i Hotkey)")
 }
 
 /** Synchronizes INI cache with actual hardware state after fast boot */
@@ -521,7 +481,7 @@ ManageAutostart(enable) {
                 
                 ; Konfiguracja: Admin, Priorytet, Bateria
                 TaskDef.Principal.RunLevel := 1 ; (admin=1/normal=0)
-                TaskDef.Settings.Priority := 3  ; 4 = Normal
+                TaskDef.Settings.Priority := 0  ; 4 = Normal
                 TaskDef.Settings.DisallowStartIfOnBatteries := false
                 TaskDef.Settings.StopIfGoingOnBatteries := false
                 TaskDef.Settings.ExecutionTimeLimit := "PT0S" ; Brak limitu czasu
@@ -1002,32 +962,95 @@ PobierzStatusAudio() {
 }
 ; #region --- HOTKEYE DLA OKNA LEGENDY ---
 
-#HotIf StartZakonczony && LegendaIstnieje() 
-WheelDown::{
-    if (CurrentProfile != 4)
+; #region --- LATE BINDING (STRATEGIA 4) ---
+
+myBindLateHotkeys() {
+    ; --- OKNO LEGENDY ---
+    HotIf((*) => LegendaIstnieje())
+    Hotkey("WheelDown", myLegendaWheelDown, "On")
+    Hotkey("WheelUp", myLegendaWheelUp, "On")
+    Hotkey("~LButton", myLegendaLButton, "On")
+    Hotkey("~Esc", (*) => LegendaGui.Hide(), "On")
+    Hotkey("~MButton", (*) => LegendaGui.Hide(), "On")
+    Hotkey("~RButton", (*) => LegendaGui.Hide(), "On")
+
+    HotIf((*) => LegendaIstnieje() && WinGetMinMax("ahk_id " LegendaGui.hwnd) != -1)
+    Hotkey("F1", (*) => (PokazUstawienia(), LegendaGui.Hide()), "On")
+
+    ; --- MYSZ GENESIS ---
+    HotIf((*) => (CurrentProfile == 1 || (CurrentProfile == 0 && GenesisActive)))
+    Hotkey("*RButton", (*) => AkcjaRButton(), "On")
+    Hotkey("XButton1", myGenesisXButton1, "On")
+    Hotkey("~RButton & XButton1", "AltTab", "On")
+    Hotkey("~RButton & XButton2", "ShiftAltTab", "On")
+    Hotkey("XButton2", myGenesisXButton2, "On")
+    Hotkey("~XButton2 & LButton", myGenesisX2LButton, "On")
+    Hotkey("~XButton2 & RButton", myGenesisX2RButton, "On")
+    Hotkey("XButton2 & XButton1", myGenesisX2X1, "On")
+
+    ; --- MYSZ STANDARDOWA ---
+    HotIf((*) => (CurrentProfile == 2 || (CurrentProfile == 0 && !GenesisActive)))
+    Hotkey("RButton", (*) => AkcjaRButton(), "On")
+    
+    HotIf((*) => (CurrentProfile == 2 || (CurrentProfile == 0 && !GenesisActive)) && !CzyNadZablokowanymElementem())
+    Hotkey("~LButton & WheelUp", (*) => (UsunTip(), ZmianaJasnosci(BrightnessStepMouse)), "On")
+    Hotkey("~LButton & WheelDown", (*) => (UsunTip(), ZmianaJasnosci(-BrightnessStepMouse)), "On")
+    Hotkey("~LButton & MButton", (*) => (UsunTip(), WygasEkran("LButton")), "On")
+    Hotkey("~LButton & RButton", "AltTab", "On")
+    Hotkey("~LButton Up", (*) => Wyslij("{Alt Up}"), "On")
+    Hotkey("~LButton", (*) => LButtonStandardTip(), "On")
+
+    ; --- KLAWIATURA ---
+    HotIf((*) => CurrentProfile != 4)
+    Hotkey("^!p", (*) => (SilnikGUI.CustomTooltip("Zrzut ekranu 📸", {Transparent: 0.2,trybPozycji:"Screen",Align:"Up+20",rozmiarCzcionki: 25,DelayON:50,czas: 1500}), Wyslij("{PrintScreen}")), "On")
+    Hotkey("^F1", (*) => ZmianaJasnosci(-BrightnessStepKbd), "On")
+    Hotkey("^F2", (*) => ZmianaJasnosci(BrightnessStepKbd), "On")
+    Hotkey("+" . Chr(96), (*) => SendText("~"), "On") ; Shift + `
+
+    ; --- GŁÓWNE ---
+    HotIf()
+    Hotkey("^!r", (*) => AwaryjneOdblokowanie(), "On")
+    Hotkey("^F12", myToggleProfile, "On")
+
+    ; --- KILL-TIP ---
+    HotIf((*) => TipIstnieje() && !LegendaIstnieje() && !GetKeyState("XButton2", "P"))
+    Hotkey("~LButton", myKillTipLButton, "On")
+    Hotkey("~MButton", (*) => (Sleep(100), UsunTip()), "On")
+    Hotkey("~RButton", (*) => (Sleep(100), UsunTip()), "On")
+    Hotkey("~Esc", (*) => UsunTip(), "On")
+
+    ; --- USTAWIENIA ---
+    HotIf((*) => UstawieniaIstnieje() && WinGetMinMax("ahk_id " GlUs.GuiObj.Hwnd) != -1 && WinActive("ahk_id " GlUs.GuiObj.Hwnd))
+    Hotkey("RButton & WheelDown", (*) => Send("{shift up}{Tab}"), "On")
+    Hotkey("RButton & WheelUp", (*) => Send("+{Tab}"), "On")
+
+    HotIf() ; Reset
+}
+
+; --- WYDZIELONE HANDLERY LATE BINDING ---
+myLegendaWheelDown(*) {
+    if (CurrentProfile != 4) {
         UstawProfil((CurrentProfile+1), true)      
         AktualizujTooltipWLocie() 
+    }
 }
-WheelUp::{
-    if (CurrentProfile != 0)
+
+myLegendaWheelUp(*) {
+    if (CurrentProfile != 0) {
         UstawProfil((CurrentProfile-1), true)
-        AktualizujTooltipWLocie() ; Odśwież tooltip
+        AktualizujTooltipWLocie() 
+    }
 }
-~LButton::
-{
+
+myLegendaLButton(*) {
     LButtonStandardTip()
-    
     if !LegendaIstnieje()
         return
-    
-    ; Ignoruj gdy lista rozwinięta
     try {
-        if SendMessage(0x0157, 0, 0, , "ahk_id " . GuiControls.DDL.Hwnd) ; CB_GETDROPPEDSTATE
+        if SendMessage(0x0157, 0, 0, , "ahk_id " . GuiControls.DDL.Hwnd)
             return
     }
-
     MouseGetPos(,, &idPodMysza, &hCtrl, 2)
-    
     try klasaOkna := WinGetClass("ahk_id " idPodMysza)
     catch 
         klasaOkna := ""
@@ -1043,86 +1066,65 @@ WheelUp::{
         LegendaGui.Hide()
     }
 }
-~Esc::
-~MButton::
-~RButton:: {
-    LegendaGui.Hide()
+
+myGenesisXButton1(*) {
+    Multiklik("XButton1", 
+        (*) => Wyslij("{XButton1}"),
+        (*) => (!PokazPodpowiedzi ? (SilnikGUI.CustomTooltip("Jasność: " . currentBrightness . "%  ◑", {ON: !EkranWygaszony, czas: 1500})) : (SilnikGUI.CustomTooltip("SCROLL  ➠  ZMIANA JASNOŚCI  ◑`n..`nŚRODKOWY  ➠  WYGASZENIE  💻`n.[2].`n(x2)  ➠  ESC  🡰`n..`n(2xHOLD)+SCROLL  🡱 🡳  ➠  STRZAŁKI  🡰 🡲`n.[2].`nJasność: " . currentBrightness . "%  ◑", {ON: !EkranWygaszony, MargPoz: 4})), MouseCtrlLib.AktywujTrybKola((*) => ZmianaJasnosci(BrightnessStepMouse), (*) => ZmianaJasnosci(-BrightnessStepMouse),(*) => Hotkey("*RButton", (*) => (UsunTip(), WygasEkran("XButton1")), "On"), (*) => Hotkey("*RButton", (*) => AkcjaRButton(), "On"), 0, "XButton1"), SilnikGUI.CustomTooltip("")),
+        (*) => Wyslij("{Escape}", true),
+        (*) => (SilnikGUI.CustomTooltip("SCROLL  🡱 🡳   ➠  STRZAŁKI  🡰 🡲", {ON: (!EkranWygaszony && PokazPodpowiedzi)}), UstawFocusPodMysz(), MouseCtrlLib.AktywujTrybKola((*) => Wyslij("{Left}", true), (*) => Wyslij("{Right}", true), 0, 0, () => SilnikGUI.CustomTooltip(""), "XButton1"), SilnikGUI.CustomTooltip("")),
+        HoldThreshold
+    )
 }
-#HotIf
 
-#HotIf StartZakonczony && LegendaIstnieje() && WinGetMinMax("ahk_id " LegendaGui.hwnd) != -1
-F1:: (PokazUstawienia(), LegendaGui.Hide())
-; #endregion
+myGenesisXButton2(*) {
+    Multiklik("XButton2",
+        (*) => Wyslij("{XButton2}"),
+            (*) => (SilnikGUI.CustomTooltip("CTRL  ✲`n..`nSCROLL  🡱 🡳  ➠  ZOOM   ( + ) 🔍 ( - )`n.[4].`n- L E W Y -`n.[3].`n(x2) ➠  CTRL+V  📄`n..`n(2xHOLD)  ➠  CTRL+V+LEWY  📄🡳`n.[4].`n- P R A W Y -`n.[3].`n(x1)  ➠  CTRL+C  📄📄`n..`n(HOLD)  ➠  CTRL+X  ✂`n..`n(x2)  ➠  CTRL+C+LEWY   📄📄🡳`n..`n(2xHOLD)  ➠  CTRL+X+LEWY  ✂🡳`n.[4].`nX1+SCROLL  🡱 🡳  ➠  CTRL+Z/Y  🡷 🡵`n.[3].`n(x2)  ➠  CTRL+SHIFT+S  ✍`n..`n(2xHOLD)+SCROLL  🡱 🡳  ➠  SCROLL  🞀 ❘❙❚❙❘ 🞂", {ON: (!EkranWygaszony && PokazPodpowiedzi), MargPoz: 2}), MouseCtrlLib.AktywujTrybKola((*) => Wyslij("{WheelUp}"), (*) => Wyslij("{WheelDown}"), (*) => Wyslij("{Ctrl Down}"), (*) => Wyslij("{Ctrl Up}"), () => SilnikGUI.CustomTooltip(""), "XButton2"), SilnikGUI.CustomTooltip("")),
+        (*) => Wyslij("^a", true),
+            (*) => (SilnikGUI.CustomTooltip("SCROLL  🡱 🡳  ➠  SCROLL  🞀 ❘❙❚❙❘ 🞂", {ON: (!EkranWygaszony && PokazPodpowiedzi)}), MouseCtrlLib.AktywujTrybKola((*) => (SendLevel(1), Wyslij("{WheelLeft}", true)), (*) => (SendLevel(1), Wyslij("{WheelRight}", true)), 0, 0, () => SilnikGUI.CustomTooltip(""), "XButton2"), SilnikGUI.CustomTooltip("")),
+        HoldThreshold
+    )
+}
 
-;----------------------------------------------------------------------------------------------------------------------------------------------
-; #region --- GŁÓWNE SKRÓTY PRZEŁĄCZANIA ---
-; #region Skróty Dla Myszy Genesis
+myGenesisX2LButton(*) {
+    Multiklik("LButton",
+    (*) => (SilnikGUI.CustomTooltip(""), Click("Left")),
+    (*) => (SilnikGUI.CustomTooltip(""), Wyslij("{Blind}{LButton Down}"), KeyWait("LButton"), Wyslij("{Blind}{LButton Up}")),
+    (*) => (SilnikGUI.CustomTooltip(""), Wyslij("^v")),
+    (*) => (SilnikGUI.CustomTooltip(""), (Click("Left"), Wyslij("^v"))),
+    HoldThreshold)
+}
 
-#HotIf StartZakonczony && (CurrentProfile = 1 or (CurrentProfile = 0 and GenesisActive))
-   
-    *RButton:: AkcjaRButton()
-    
-    XButton1:: {
-        Multiklik("XButton1", 
-            (*) => Wyslij("{XButton1}"),
-            (*) => (!PokazPodpowiedzi ? (SilnikGUI.CustomTooltip("Jasność: " . currentBrightness . "%  ◑", {ON: !EkranWygaszony, czas: 1500})) : (SilnikGUI.CustomTooltip("SCROLL  ➠  ZMIANA JASNOŚCI  ◑`n..`nŚRODKOWY  ➠  WYGASZENIE  💻`n.[2].`n(x2)  ➠  ESC  🡰`n..`n(2xHOLD)+SCROLL  🡱 🡳  ➠  STRZAŁKI  🡰 🡲`n.[2].`nJasność: " . currentBrightness . "%  ◑", {ON: !EkranWygaszony, MargPoz: 4})), MouseCtrlLib.AktywujTrybKola((*) => ZmianaJasnosci(BrightnessStepMouse), (*) => ZmianaJasnosci(-BrightnessStepMouse),(*) => Hotkey("*RButton", (*) => (UsunTip(), WygasEkran("XButton1")), "On"), (*) => Hotkey("*RButton", (*) => AkcjaRButton(), "On"), 0, "XButton1"), SilnikGUI.CustomTooltip("")),
-            (*) => Wyslij("{Escape}", true),
-            (*) => (SilnikGUI.CustomTooltip("SCROLL  🡱 🡳   ➠  STRZAŁKI  🡰 🡲", {ON: (!EkranWygaszony && PokazPodpowiedzi)}), UstawFocusPodMysz(), MouseCtrlLib.AktywujTrybKola((*) => Wyslij("{Left}", true), (*) => Wyslij("{Right}", true), 0, 0, () => SilnikGUI.CustomTooltip(""), "XButton1"), SilnikGUI.CustomTooltip("")),
-            HoldThreshold ; Czas przytrzymania
-        )
+myGenesisX2RButton(*) {
+    Multiklik("RButton", 
+    (*) => (SilnikGUI.CustomTooltip(""), Wyslij("^c")), 
+    (*) => (SilnikGUI.CustomTooltip(""), Wyslij("^x")), 
+    (*) => (SilnikGUI.CustomTooltip(""), (Wyslij("{Ctrl Up}"), Click("Left"), Wyslij("^c"))), 
+    (*) => (SilnikGUI.CustomTooltip(""), (Wyslij("{Ctrl Up}"), Click("Left"), Wyslij("^x"))), 
+    HoldThreshold)
+}
+
+myGenesisX2X1(*) {
+    SilnikGUI.CustomTooltip("SCROLL  🡱 🡳  ➠  CTRL+Z/Y  🡷 🡵", {ON: (!EkranWygaszony && PokazPodpowiedzi)})
+    MouseCtrlLib.AktywujTrybKola((*) => Wyslij("^z"), (*) => Wyslij("^y"), 0, 0, () => SilnikGUI.CustomTooltip(""), "xbutton2")
+}
+
+myToggleProfile(*) {
+    if CurrentProfile < 3 {
+        UstawProfil(CurrentProfile+1, true)   
+        AktualizujTooltipWLocie() 
+    } else if (CurrentProfile = 3) {
+        UstawProfil(0, true)
+        AktualizujTooltipWLocie()
     }
+}
 
-    ~RButton & XButton1:: AltTab
-    ~RButton & XButton2:: ShiftAltTab
-
-    XButton2:: {
-        Multiklik("XButton2",
-            (*) => Wyslij("{XButton2}"),
-                (*) => (SilnikGUI.CustomTooltip("CTRL  ✲`n..`nSCROLL  🡱 🡳  ➠  ZOOM   ( + ) 🔍 ( - )`n.[4].`n- L E W Y -`n.[3].`n(x2) ➠  CTRL+V  📄`n..`n(2xHOLD)  ➠  CTRL+V+LEWY  📄🡳`n.[4].`n- P R A W Y -`n.[3].`n(x1)  ➠  CTRL+C  📄📄`n..`n(HOLD)  ➠  CTRL+X  ✂`n..`n(x2)  ➠  CTRL+C+LEWY   📄📄🡳`n..`n(2xHOLD)  ➠  CTRL+X+LEWY  ✂🡳`n.[4].`nX1+SCROLL  🡱 🡳  ➠  CTRL+Z/Y  🡷 🡵`n.[3].`n(x2)  ➠  CTRL+SHIFT+S  ✍`n..`n(2xHOLD)+SCROLL  🡱 🡳  ➠  SCROLL  🞀 ❘❙❚❙❘ 🞂", {ON: (!EkranWygaszony && PokazPodpowiedzi), MargPoz: 2}), MouseCtrlLib.AktywujTrybKola((*) => Wyslij("{WheelUp}"), (*) => Wyslij("{WheelDown}"), (*) => Wyslij("{Ctrl Down}"), (*) => Wyslij("{Ctrl Up}"), () => SilnikGUI.CustomTooltip(""), "XButton2"), SilnikGUI.CustomTooltip("")),
-            (*) => Wyslij("^a", true),
-                (*) => (SilnikGUI.CustomTooltip("SCROLL  🡱 🡳  ➠  SCROLL  🞀 ❘❙❚❙❘ 🞂", {ON: (!EkranWygaszony && PokazPodpowiedzi)}), MouseCtrlLib.AktywujTrybKola((*) => (SendLevel(1), Wyslij("{WheelLeft}", true)), (*) => (SendLevel(1), Wyslij("{WheelRight}", true)), 0, 0, () => SilnikGUI.CustomTooltip(""), "XButton2"), SilnikGUI.CustomTooltip("")),
-            HoldThreshold
-        )
-    }
-
-   ~XButton2 & LButton:: {
-        Multiklik("LButton",
-        (*) => (SilnikGUI.CustomTooltip(""), Click("Left")),
-        (*) => (SilnikGUI.CustomTooltip(""), Wyslij("{Blind}{LButton Down}"), KeyWait("LButton"), Wyslij("{Blind}{LButton Up}")),
-        (*) => (SilnikGUI.CustomTooltip(""), Wyslij("^v")),
-        (*) => (SilnikGUI.CustomTooltip(""), (Click("Left"), Wyslij("^v"))),
-        HoldThreshold)
-    }
- 
-    ~XButton2 & RButton:: {
-        Multiklik("RButton", 
-        (*) => (SilnikGUI.CustomTooltip(""), Wyslij("^c")), 
-        (*) => (SilnikGUI.CustomTooltip(""), Wyslij("^x")), 
-        (*) => (SilnikGUI.CustomTooltip(""), (Wyslij("{Ctrl Up}"), Click("Left"), Wyslij("^c"))), 
-        (*) => (SilnikGUI.CustomTooltip(""), (Wyslij("{Ctrl Up}"), Click("Left"), Wyslij("^x"))), 
-        HoldThreshold)
-    }
-    
-   XButton2 & XButton1:: {
-        SilnikGUI.CustomTooltip("SCROLL  🡱 🡳  ➠  CTRL+Z/Y  🡷 🡵", {ON: (!EkranWygaszony && PokazPodpowiedzi)})
-        MouseCtrlLib.AktywujTrybKola((*) => Wyslij("^z"), (*) => Wyslij("^y"), 0, 0, () => SilnikGUI.CustomTooltip(""), "xbutton2")
-     }
-          
-#HotIf
-
-; #endregion
-;----------------------------------------------------------------------------------------------------------------------------------------------
-; #region Skróty Dla Myszy Standardowej
-#HotIf StartZakonczony && (CurrentProfile = 2 or (CurrentProfile = 0 and !GenesisActive))
-    RButton:: AkcjaRButton()
-#HotIf StartZakonczony && (CurrentProfile = 2 or (CurrentProfile = 0 and !GenesisActive))  && !CzyNadZablokowanymElementem()
-    ~LButton & WheelUp:: (UsunTip(), ZmianaJasnosci(BrightnessStepMouse))
-    ~LButton & WheelDown:: (UsunTip(), ZmianaJasnosci(-BrightnessStepMouse))
-    ~LButton & MButton::  (UsunTip(), WygasEkran("LButton"))
-    ~LButton & RButton:: AltTab
-    ~LButton Up::Wyslij("{Alt Up}") ; Wymuszone zwolnienie Alt po AltTab
-    ~LButton:: LButtonStandardTip()
-#HotIf
+myKillTipLButton(*) {
+    Sleep(100)
+    UsunTip()
+    LButtonStandardTip(HoldThreshold*1000-100)
+}
 ; #endregion
 ;----------------------------------------------------------------------------------------------------------------------------------------------
 ; #region Funkcje Pomocnicze - główne skróty
@@ -1202,55 +1204,6 @@ AwaryjneOdblokowanie() {
 
 ; #endregion
 ;----------------------------------------------------------------------------------------------------------------------------------------------
-; #region Skróty Dla Klawiatury 
-#HotIf StartZakonczony && CurrentProfile != 4
-    ^!p::(SilnikGUI.CustomTooltip("Zrzut ekranu 📸", {Transparent: 0.2,trybPozycji:"Screen",Align:"Up+20",rozmiarCzcionki: 25,DelayON:50,czas: 1500}), Wyslij("{PrintScreen}")) ; Ctrl+Alt+P
-    ^F1::ZmianaJasnosci(-BrightnessStepKbd) ; Ctrl+F1
-    ^F2::ZmianaJasnosci(BrightnessStepKbd) ; Ctrl+F2
-    +`::SendText "~" ; Shift + `
-#HotIf
-#HotIf StartZakonczony
-    ^!r::AwaryjneOdblokowanie()
-    ^f12:: {
-        if CurrentProfile < 3 {
-            UstawProfil(CurrentProfile+1, true)   
-            AktualizujTooltipWLocie() ; Odśwież tooltip
-        } else if (CurrentProfile = 3) {
-            UstawProfil(0, true)
-            AktualizujTooltipWLocie() ; Wymusza odświeżenie tooltipa po zmianie danych
-        }
-    }
-
-
-#HotIf
-;#endregion
-;#endregion 
-;----------------------------------------------------------------------------------------------------------------------------------------------
-;#region skróty KILL-TIP
-
-    #HotIf StartZakonczony && TipIstnieje() && !LegendaIstnieje() && !GetKeyState("XButton2", "P")
-    ~LButton:: {
-        (sleep(100), UsunTip())
-        LButtonStandardTip(HoldThreshold*1000-100)
-    }
-    ~MButton:: (sleep(100), UsunTip())
-    ~RButton:: (sleep(100), UsunTip())
-    ~Esc:: UsunTip()
-    #HotIf   
-; #endregion
-;----------------------------------------------------------------------------------------------------------------------------------------------
-
-; #region --- OBSŁUGA OKNA USTAWIEŃ (SILNIK GUI) ---
-; skróty tylko w oknie ustawień
-
-#HotIf StartZakonczony && UstawieniaIstnieje() && WinGetMinMax("ahk_id " GlUs.GuiObj.Hwnd) != -1 && WinActive("ahk_id " GlUs.GuiObj.Hwnd)
-
-    ; Nawigacja (Tab) PPM+Rolka
-    RButton & WheelDown::Send("{shift up}{Tab}")
-    RButton & WheelUp::Send("+{Tab}")
-
-#HotIf
-; #endregion
 
 ; #region --- KLASA AUDIO MONITOR (COM) ---
 class AudioMonitor {
