@@ -9,6 +9,16 @@ DllCall("User32\ChangeWindowMessageFilterEx", "Ptr", A_ScriptHwnd, "UInt", 0x004
 #Include "mouse_ctrl_lib.ahk"
 #Include "..\AHK2_My_libs\MojeFunkcje.ahk"
 
+; #region --- IPC PROTOCOL (SSoT) ---
+/** Dynamic Win32 message registration to prevent ID collisions.
+ * OS returns a unique ID for this string. Both processes use it to talk safely. */
+global myIpcChannelName := "MouseCtrl_IPC_Channel_v1"
+global myIpcMsgId       := DllCall("User32\RegisterWindowMessage", "Str", myIpcChannelName, "UInt")
+global myIpcSignature   := 0x5555
+global myIpcSeparator   := "|"
+global WM_COPYDATA      := 0x004A
+global myWmiNamespace   := "winmgmts:\\.\root\WMI"
+; #endregion
 
 ; #region --- SPRAWDZANIE UPRAWNIEŃ ---
 ; TODO: Fix skalowania (refaktor legendy do silnika)
@@ -118,7 +128,7 @@ A_TrayMenu.Add("Unlock Keys (Ctrl+Alt+R)", (*) => AwaryjneOdblokowanie())
 A_TrayMenu.Add("Exit", (*) => ExitApp())
 
 OnMessage(0x219, OnDeviceChange)
-OnMessage(0x004A, myOnHardwareStateReady)
+OnMessage(WM_COPYDATA, myOnHardwareStateReady)
 
 ; #endregion
 ;----------------------------------------------------------------------------------------------------------------------------------------------
@@ -150,6 +160,20 @@ stworzPowiadomienieStartowe(tekst, kolor, yPoz) => AktywneOkna.Push(GenerujGuiPo
 SetTimer(AsynchronicznaInicjalizacja, -1) ; Uruchom WMI w tle
 
 AsynchronicznaInicjalizacja() {
+    ; --- DAEMON ZOMBIE PREVENTION ---
+    myDaemonPath := A_ScriptDir . "\myHardwareWorker.ahk"
+    DetectHiddenWindows(true)
+    for hw in WinGetList("ahk_class AutoHotkey") {
+        try if InStr(WinGetTitle(hw), "myHardwareWorker.ahk")
+            WinClose(hw)
+    }
+    ; --- START DAEMON ---
+    global TargetMouseID, myWorkerHwnd, myIpcMsgId, myIpcSignature, myIpcSeparator, myWmiNamespace
+    try {
+        Run('"' A_AhkPath '" "' myDaemonPath '" "' A_ScriptHwnd '" "' TargetMouseID '" "' myIpcMsgId '" "' myIpcSignature '" "' myIpcSeparator '" "' myWmiNamespace '"', , "Hide", &WorkerPID)
+        myWorkerHwnd := WinWait("ahk_class AutoHotkey ahk_pid " WorkerPID,, 3)
+    }
+
     myWorkerPath := A_ScriptDir . "\myPreWarmWorker.ahk"
     try Run('"' . A_AhkPath . '" "' . myWorkerPath . '"')
     
@@ -177,46 +201,56 @@ AsynchronicznaInicjalizacja() {
 /** Synchronizes INI cache with actual hardware state after fast boot */
 myDeferredInit() {
     AudioMonitor.Update()
-    myFetchHardwareState()
+    myFetchHardwareState(3) ; Fetch both (Mouse + Initial Brightness) on boot
 }
 ; #endregion
 ;----------------------------------------------------------------------------------------------------------------------------------------------
 ; #region --- MODUŁ AUTOWYKRYWANIA MYSZY ---
 OnDeviceChange(wParam, lParam, msg, hwnd) {
-    SetTimer(myFetchHardwareState, -1000)
+    SetTimer(() => myFetchHardwareState(1), -1000)
     SetTimer(() => AudioMonitor.Update(), -500) ; Odśwież cache audio po zmianie sprzętu
 }
 
-myFetchHardwareState() {
-    global TargetMouseID
-    myWorkerPath := A_ScriptDir . "\myHardwareWorker.ahk"
-    try Run('"' . A_AhkPath . '" "' . myWorkerPath . '" "' . A_ScriptHwnd . '" "' . TargetMouseID . '"')
+/** Sends IPC bitmask command to background daemon
+ * @param mode 1:Mouse | 2:Brightness | 3:All | 4:Kill */
+myFetchHardwareState(mode) {
+    global myWorkerHwnd, myIpcMsgId
+    if (IsSet(myWorkerHwnd) && myWorkerHwnd)
+        try PostMessage(myIpcMsgId, mode, 0,, myWorkerHwnd)
 }
 
-myOnHardwareStateReady(wParam, lParam, msg, hwnd) {
-    if (NumGet(lParam, 0, "UPtr") != 0x5555) ; dwData (Signature check)
-        return
-        
-    global GenesisActive, currentBrightness, CurrentProfile, InicjalizacjaTrwa
-    
-    myStringPtr := NumGet(lParam, A_PtrSize * 2, "UPtr")
-    myPayload := StrGet(myStringPtr, "UTF-16")
-    myParts := StrSplit(myPayload, "|")
-    if (myParts.Length < 2)
-        return 1
-        
-    myNewGenesis := Number(myParts[1])
-    currentBrightness := Number(myParts[2])
-    
+/** Extracted logic to update mouse state and GUI */
+myUpdateGenesis(val) {
+    global GenesisActive, CurrentProfile, InicjalizacjaTrwa
     if (CurrentProfile == 0) {
         myOldState := GenesisActive
-        GenesisActive := myNewGenesis
+        GenesisActive := val
         if (myOldState != GenesisActive) {
             if (!IsSet(InicjalizacjaTrwa) || !InicjalizacjaTrwa)
                 PokazTip((GenesisActive ? "DETECTED" : "DISCONNECTED") . " Mouse: Genesis", GenesisActive ? "9FFB88" : "FA8072")
             LegendaIstnieje() && AktualizujListe()
         }
     }
+}
+
+myOnHardwareStateReady(wParam, lParam, msg, hwnd) {
+    global myIpcSignature, myIpcSeparator, currentBrightness
+    if (NumGet(lParam, 0, "UPtr") != myIpcSignature) ; dwData (Signature check)
+        return
+        
+    myStringPtr := NumGet(lParam, A_PtrSize * 2, "UPtr")
+    myPayload := StrGet(myStringPtr, "UTF-16")
+    myParts := StrSplit(myPayload, myIpcSeparator)
+    
+    /** Data Mapper: Array of callbacks for each payload segment */
+    myActions := [myUpdateGenesis, (val) => currentBrightness := val]
+    
+    for index, val in myParts {
+        myNumVal := Number(val)
+        if (myNumVal != -1 && myActions.Has(index))
+            myActions[index](myNumVal)
+    }
+
     return 1 ; Confirm receipt
 }
 ; #endregion
@@ -226,6 +260,7 @@ myOnHardwareStateReady(wParam, lParam, msg, hwnd) {
 ZapiszStanSprzetowy(ExitReason, ExitCode) {
     IniWrite(GenesisActive, IniPath, "Settings", "LastGenesisActive")
     IniWrite(currentBrightness, IniPath, "Settings", "LastBrightness")
+    myFetchHardwareState(4)
 }
 
 TipColor() => ["9FFB88", "fbf988", "fbf988", "fbc088", "FA8072"][CurrentProfile + 1]
@@ -267,7 +302,7 @@ PobierzNazweProfilu() => ["AUTO: " . (GenesisActive ? "Genesis Mouse" : "Standar
 UstawProfil(nr, pokazacTip := false) {
     global CurrentProfile := nr
     if (nr == 0)
-        myFetchHardwareState()
+        myFetchHardwareState(1) ; Fetch ONLY mouse state
 
     A_IconTip := "Mouse Control"
 
@@ -888,10 +923,10 @@ AktualizujTooltipWLocie() => LegendaIstnieje() && (MouseGetPos(,,, &hCtrl, 2), O
 ; #region --- OBSŁUGA ZMIANY JASNOŚCI ---
 
 ZmianaJasnosci(delta) {
-    global currentBrightness
+    global currentBrightness, myWmiNamespace
     currentBrightness := Min(Max(currentBrightness + delta, 10), 100)
     try {
-        for method in ComObjGet("winmgmts:\\.\root\WMI").ExecQuery("SELECT * FROM WmiMonitorBrightnessMethods")
+        for method in ComObjGet(myWmiNamespace).ExecQuery("SELECT * FROM WmiMonitorBrightnessMethods")
             method.WmiSetBrightness(0, currentBrightness)
     }
     SilnikGUI.CustomTooltip("Brightness: " . currentBrightness . "%  ◑", {czas: 1500})
