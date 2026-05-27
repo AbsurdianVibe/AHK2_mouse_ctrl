@@ -92,6 +92,7 @@ class DaneGlobalne {
         global TipLive := 5000 ; Czas życia tooltipa (ms)
         global EkranWygaszony := false
         
+        global myAudioCache := "🔊?   "
         ; --- KONFIGURACJA MOTYWU (Centralne sterowanie z biblioteki) ---
         SilnikGUI.Konfiguruj("363533", 0.2, 0.4, 0.8, "bd4646", 0.1, 0.1) ; 363533, 0.2  - ramka
         SilnikGUI.TipDelayON := 0
@@ -125,7 +126,6 @@ A_TrayMenu.Add()
 A_TrayMenu.Add("Unlock Keys (Ctrl+Alt+R)", (*) => AwaryjneOdblokowanie())
 A_TrayMenu.Add("Exit", (*) => ExitApp())
 
-OnMessage(0x219, OnDeviceChange)
 OnMessage(WM_COPYDATA, myOnHardwareStateReady)
 
 ; #endregion
@@ -197,17 +197,11 @@ AsynchronicznaInicjalizacja() {
 
 /** Synchronizes INI cache with actual hardware state after fast boot */
 myDeferredInit() {
-    AudioMonitor.Update()
-    myFetchHardwareState(3) ; Fetch both (Mouse + Initial Brightness) on boot
+    myFetchHardwareState(7) ; Fetch Mouse(1) + Brightness(2) + Audio(4) on boot
 }
 ; #endregion
 ;----------------------------------------------------------------------------------------------------------------------------------------------
 ; #region --- MODUŁ AUTOWYKRYWANIA MYSZY ---
-OnDeviceChange(wParam, lParam, msg, hwnd) {
-    SetTimer(() => myFetchHardwareState(1), -1000)
-    SetTimer(() => AudioMonitor.Update(), -500) ; Odśwież cache audio po zmianie sprzętu
-}
-
 /** Sends IPC bitmask command to background daemon
  * @param mode 1:Mouse | 2:Brightness | 3:All | 4:Kill */
 myFetchHardwareState(mode) {
@@ -230,7 +224,7 @@ myUpdateGenesis(val) {
 }
 
 myOnHardwareStateReady(wParam, lParam, msg, hwnd) {
-    global myIpcSignature, myIpcSeparator, currentBrightness
+    global myIpcSignature, myIpcSeparator, currentBrightness, myAudioCache
     if (NumGet(lParam, 0, "UPtr") != myIpcSignature) ; dwData (Signature check)
         return
         
@@ -238,13 +232,15 @@ myOnHardwareStateReady(wParam, lParam, msg, hwnd) {
     myPayload := StrGet(myStringPtr, "UTF-16")
     myParts := StrSplit(myPayload, myIpcSeparator)
     
-    /** Data Mapper: Array of callbacks for each payload segment */
-    myActions := [myUpdateGenesis, (val) => currentBrightness := val]
+    myActions := [
+        (val) => myUpdateGenesis(Number(val)), 
+        (val) => currentBrightness := Number(val),
+        (val) => myAudioCache := String(val)
+    ]
     
     for index, val in myParts {
-        myNumVal := Number(val)
-        if (myNumVal != -1 && myActions.Has(index))
-            myActions[index](myNumVal)
+        if (val != "-1" && myActions.Has(index))
+            myActions[index](val)
     }
 
     return 1 ; Confirm receipt
@@ -993,7 +989,8 @@ WygasEkran(klawisz := "LButton") {
 }
 
 PobierzStatusAudio() {
-    return AudioMonitor.Cache . Round(SoundGetVolume()) . "%" . (SoundGetMute() ? "  🔉X" : "  🔊 ")
+    global myAudioCache
+    return myAudioCache . Round(SoundGetVolume()) . "%" . (SoundGetMute() ? "  🔉X" : "  🔊 ")
 }
 ; #region --- HOTKEYE DLA OKNA LEGENDY ---
 
@@ -1239,79 +1236,3 @@ AwaryjneOdblokowanie() {
 
 ; #endregion
 ;----------------------------------------------------------------------------------------------------------------------------------------------
-
-; #region --- KLASA AUDIO MONITOR (COM) ---
-class AudioMonitor {
-    static Cache := "🔊?   "
-    
-    ; Odświeża cache ikon (wywoływane rzadko: start/zmiana sprzętu)
-    static Update() {
-        try {
-            ; CLSID_MMDeviceEnumerator
-            enumerator := ComObject("{BCDE0395-E52F-467C-8E3D-C4579291692E}", "{A95664D2-9614-4F35-A746-DE8DB63617E6}")
-            ; GetDefaultAudioEndpoint(eRender=0, eConsole=1, &ppDevice)
-            ComCall(4, enumerator, "Int", 0, "Int", 1, "Ptr*", &device := 0)
-            if !device
-                return
-            
-            ; OpenPropertyStore(STGM_READ=0, &ppStore)
-            ComCall(4, device, "Int", 0, "Ptr*", &storePtr := 0)
-            ObjRelease(device)
-            if !storePtr
-                return
-            
-            store := ComValue(13, storePtr) ; Wrap
-            
-            ; PKEY_AudioEndpoint_FormFactor (VT_UI4 = 19)
-            formFactor := this.GetProp(store, "{1DA5D803-D492-4EDD-8C23-E0C0FFEE7F0E}", 0)
-            
-            ; PKEY_Device_EnumeratorName {A45C254E...}, 24 (Kluczowe dla typu magistrali)
-            devEnum := this.GetProp(store, "{A45C254E-DF1C-4EFD-8020-67D146A850E0}", 24)
-            
-            ; PKEY_Device_InstanceId (VT_LPWSTR = 31)
-            devId := this.GetProp(store, "{78C34FC8-E0AF-4E42-AAEC-27220C63243C}", 256)
-            
-            ; Agregacja danych do analizy (Enum + ID + Nazwa)
-            fullInfo := devEnum . " " . devId . " " . SoundGetName()
-            
-            ; 1. Typ połączenia
-            iconConn := "💻" ; Domyślnie Internal
-            if (fullInfo ~= "i)(USB|UAC)")
-                iconConn := "ψ"
-            else if (fullInfo ~= "i)(Blue|BT|BTH)")
-                iconConn := "ᛒ"
-            else if (fullInfo ~= "i)(HDAUDIO|PCI|Realtek|High Def)")
-                iconConn := (formFactor == 3 || formFactor == 5) ? "Jack ⊙" : "💻" ; Jack vs Internal
-            
-            ; 2. Typ urządzenia (FormFactor)
-            iconForm := (formFactor == 3) ? "🎧" : ((formFactor == 5) ? "📞" : "🔊")
-            
-            ; 3. Budowanie stringa
-            this.Cache := iconConn . ((iconConn == "💻" || iconConn == "⊙") ? "" : " " . iconForm) . "   "
-            
-        } catch 
-            this.Cache := "🔊?   "
-    }
-
-    static GetProp(store, guid, pid) {
-        pk := Buffer(20, 0)
-        DllCall("Ole32\CLSIDFromString", "Str", guid, "Ptr", pk)
-        NumPut("UInt", pid, pk, 16)
-        
-        val := Buffer(24, 0)
-        try ComCall(5, store, "Ptr", pk, "Ptr", val) ; IPropertyStore::GetValue
-        catch 
-            return ""
-            
-        vt := NumGet(val, 0, "UShort")
-        res := ""
-        if (vt == 19) ; VT_UI4
-            res := NumGet(val, 8, "UInt")
-        else if (vt == 31) ; VT_LPWSTR
-            res := StrGet(NumGet(val, 8, "Ptr"))
-        
-        DllCall("Ole32\PropVariantClear", "Ptr", val) ; Ważne czyszczenie
-        return res
-    }
-}
-; #endregion
