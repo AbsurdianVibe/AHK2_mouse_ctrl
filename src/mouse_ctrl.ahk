@@ -90,7 +90,6 @@ class DaneGlobalne {
         global DystansDoZamkniecia := 100 ; Dystans w px do zamknięcia popupu
         global MyszNadIkona := false
         global TipLive := 5000 ; Czas życia tooltipa (ms)
-        global WasMutedAction := false
         global EkranWygaszony := false
         
         ; --- KONFIGURACJA MOTYWU (Centralne sterowanie z biblioteki) ---
@@ -103,7 +102,6 @@ class DaneGlobalne {
         global KolorTekst      := SilnikGUI.Motyw.Tekst
         global KolorWarn       := SilnikGUI.Motyw.Ostrzezenie
         global KolorPrzycisku  := SilnikGUI.Motyw.Przycisk
-        global ParametrFocus   := SilnikGUI.Motyw.ParamFocus
         OnExit(ZapiszStanSprzetowy)
     }
 }
@@ -181,7 +179,6 @@ AsynchronicznaInicjalizacja() {
     ; Cache Shell API path
     global myCachedStartupPath := A_Startup . "\mouse_ctrl.lnk"
     
-    global InicjalizacjaTrwa := false
     A_IconTip := "Mouse Control"
     
     stworzPowiadomienieStartowe(PobierzNazweProfilu(), TipColor(), 0)
@@ -221,13 +218,12 @@ myFetchHardwareState(mode) {
 
 /** Extracted logic to update mouse state and GUI */
 myUpdateGenesis(val) {
-    global GenesisActive, CurrentProfile, InicjalizacjaTrwa
+    global GenesisActive, CurrentProfile
     if (CurrentProfile == 0) {
         myOldState := GenesisActive
         GenesisActive := val
         if (myOldState != GenesisActive) {
-            if (!IsSet(InicjalizacjaTrwa) || !InicjalizacjaTrwa)
-                PokazTip((GenesisActive ? "DETECTED" : "DISCONNECTED") . " Mouse: Genesis", GenesisActive ? "9FFB88" : "FA8072")
+            PokazTip((GenesisActive ? "DETECTED" : "DISCONNECTED") . " Mouse: Genesis", GenesisActive ? "9FFB88" : "FA8072")
             LegendaIstnieje() && AktualizujListe()
         }
     }
@@ -380,7 +376,7 @@ MonitorujMysz() {
 PokazUstawienia(*) {
     global DefaultProfile, BrightnessStepMouse, BrightnessStepKbd, VolStepMouse, IniPath, GlUs, Uprawnienia
     global StartProf, Edit_BM, Edit_BK, Edit_VM, Edit_VD
-    global StatusTextControl, Check_Autostart, Check_Podpowiedzi, UprawnieniaCheckbox,
+    global StatusTextControl, Check_Autostart, Check_Podpowiedzi, UprawnieniaCheckbox
     SzerOknUst := 220 
     pad := 10
     ;STATUS AUTOSTARU
@@ -895,12 +891,6 @@ ObslugaTooltipow(wParam, lParam, msg, hwnd) {
         switch currCtrl.Name {
             case "UprawnieniaText", "admininfoU":
                 Tresc := TipText.AdminTip
-            ;case "AutoTryb":
-            ;    Tresc := (CurrentProfile == 4 ? "" : (CurrentProfile == 0 ? "Wykrywanie myszy" : "Brak wykrywania myszy"))
-            ;case "NaglowekKlawiatury":
-            ;    Tresc := TrescLegendy(CurrentProfile, GenesisActive).KlawHeader
-            ;case "ListaLKlawiatury", "ListaRKlawiatury":
-            ;    Tresc := TrescLegendy(CurrentProfile, GenesisActive).KlawText
         }
         
     }
@@ -936,7 +926,6 @@ ZmianaGlosnosci(delta) {
 }
 
 PrzelaczWyciszenie() {
-    global WasMutedAction := true
     SoundSetMute(-1)
     SilnikGUI.CustomTooltip(PobierzStatusAudio(), {czas: 1500})
 }

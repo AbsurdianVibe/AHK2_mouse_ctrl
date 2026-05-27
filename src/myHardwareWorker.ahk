@@ -27,11 +27,6 @@ global myWmiBusy := false
 global myAppliedBrightness := -1
 OnMessage(myIpcMsgId, myHandleRequest)
 
-/** WMI Event callback */
-myWmiSink_OnObjectReady(objWbemObject, *) {
-    try myDispatchIpcEvent(-1, objWbemObject.TargetInstance.CurrentBrightness)
-}
-
 /** Dispatches IPC payload to main script
  * @param genesisState -1: skip, 0/1: state
  * @param brightnessVal -1: skip, 1-100: val */
