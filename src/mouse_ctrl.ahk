@@ -923,12 +923,10 @@ AktualizujTooltipWLocie() => LegendaIstnieje() && (MouseGetPos(,,, &hCtrl, 2), O
 ; #region --- OBSŁUGA ZMIANY JASNOŚCI ---
 
 ZmianaJasnosci(delta) {
-    global currentBrightness, myWmiNamespace
+    global currentBrightness, myWorkerHwnd, myIpcMsgId
     currentBrightness := Min(Max(currentBrightness + delta, 10), 100)
-    try {
-        for method in ComObjGet(myWmiNamespace).ExecQuery("SELECT * FROM WmiMonitorBrightnessMethods")
-            method.WmiSetBrightness(0, currentBrightness)
-    }
+    if (IsSet(myWorkerHwnd) && myWorkerHwnd)
+        try PostMessage(myIpcMsgId, 5, currentBrightness,, myWorkerHwnd)
     SilnikGUI.CustomTooltip("Brightness: " . currentBrightness . "%  ◑", {czas: 1500})
 }
 

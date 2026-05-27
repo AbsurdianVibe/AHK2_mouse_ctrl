@@ -22,6 +22,9 @@ ComObjConnect(myWmiSink, "myWmiSink_")
 try ComObjGet(myWmiNamespace).ExecNotificationQueryAsync(myWmiSink, "SELECT * FROM __InstanceModificationEvent WITHIN 1 WHERE TargetInstance ISA 'WmiMonitorBrightness'")
 ; #endregion
 
+global myPendingBrightness := 0
+global myWmiBusy := false
+global myAppliedBrightness := -1
 OnMessage(myIpcMsgId, myHandleRequest)
 
 /** WMI Event callback */
@@ -47,12 +50,38 @@ myDispatchIpcEvent(genesisState, brightnessVal) {
     SendMessage(WM_COPYDATA, 0, myCopyData.Ptr,, Integer(myMainHwnd))
 }
 
+/** Applies brightness and recurses if new target was buffered during WMI lag */
+myProcessBrightnessQueue() {
+    global myPendingBrightness, myWmiNamespace, myWmiBusy, myAppliedBrightness
+    myCurrentTarget := myPendingBrightness
+    try {
+        for method in ComObjGet(myWmiNamespace).ExecQuery("SELECT * FROM WmiMonitorBrightnessMethods")
+            method.WmiSetBrightness(0, myCurrentTarget)
+        myAppliedBrightness := myCurrentTarget
+    }
+    
+    if (myPendingBrightness != myAppliedBrightness)
+        SetTimer(myProcessBrightnessQueue, -1)
+    else
+        myWmiBusy := false
+}
+
 myHandleRequest(wParam, lParam, msg, hwnd) {
-    global myTargetMouseID, myWmiNamespace
+    global myTargetMouseID, myWmiNamespace, myPendingBrightness, myWmiBusy
     
     if (wParam == 4)
         ExitApp()
         
+    /** 0. Throttle Brightness Update */
+    if (wParam == 5) {
+        myPendingBrightness := lParam
+        if (!myWmiBusy) {
+            myWmiBusy := true
+            SetTimer(myProcessBrightnessQueue, -1)
+        }
+        return 1
+    }
+
     /** 1. Fetch mouse state via WMI */
     myGenesisActive := -1
     if (wParam & 1) {
