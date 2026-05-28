@@ -1029,12 +1029,12 @@ myBindLateHotkeys() {
     Hotkey("~LButton & WheelDown", (*) => (UsunTip(), ZmianaJasnosci(-BrightnessStepMouse)), "On")
     Hotkey("~LButton & MButton", (*) => (UsunTip(), WygasEkran("LButton")), "On")
     Hotkey("~LButton & RButton", "AltTab", "On")
-    Hotkey("~LButton Up", (*) => Wyslij("{Alt Up}"), "On")
+    Hotkey("~LButton Up", (*) => Send("{Alt Up}"), "On")
     Hotkey("~LButton", (*) => LButtonStandardTip(), "On")
 
     ; --- KLAWIATURA ---
     HotIf((*) => CurrentProfile != 4)
-    Hotkey("^!p", (*) => (SilnikGUI.CustomTooltip("Screenshot 📸", {Transparent: 0.2,trybPozycji:"Screen",Align:"Up+20",rozmiarCzcionki: 25,DelayON:50,czas: 1500}), Wyslij("{PrintScreen}")), "On")
+    Hotkey("^!p", (*) => (SilnikGUI.CustomTooltip("Screenshot 📸", {Transparent: 0.2,trybPozycji:"Screen",Align:"Up+20",rozmiarCzcionki: 25,DelayON:50,czas: 1500}), Send("{PrintScreen}")), "On")
     Hotkey("^F1", (*) => ZmianaJasnosci(-BrightnessStepKbd), "On")
     Hotkey("^F2", (*) => ZmianaJasnosci(BrightnessStepKbd), "On")
     Hotkey("+" . Chr(96), (*) => SendText("~"), "On") ; Shift + `
@@ -1101,20 +1101,20 @@ myLegendaLButton(*) {
 
 myGenesisXButton1(*) {
     Multiklik("XButton1", 
-        (*) => Wyslij("{XButton1}"),
+        (*) => Send("{XButton1}"),
         (*) => (!PokazPodpowiedzi ? (SilnikGUI.CustomTooltip("Brightness: " . currentBrightness . "%  ◑", {ON: !EkranWygaszony, czas: 1500})) : (SilnikGUI.CustomTooltip("SCROLL  ➠  BRIGHTNESS  ◑`n..`nMIDDLE  ➠  SCREEN OFF  💻`n.[2].`n(x2)  ➠  ESC  🡰`n..`n(2xHOLD)+SCROLL  🡱 🡳  ➠  ARROWS  🡰 🡲`n.[2].`nBrightness: " . currentBrightness . "%  ◑", {ON: !EkranWygaszony, MargPoz: 4})), MouseCtrlLib.AktywujTrybKola((*) => ZmianaJasnosci(BrightnessStepMouse), (*) => ZmianaJasnosci(-BrightnessStepMouse),(*) => Hotkey("*RButton", (*) => (UsunTip(), WygasEkran("XButton1")), "On"), (*) => Hotkey("*RButton", (*) => AkcjaRButton(), "On"), 0, "XButton1"), SilnikGUI.CustomTooltip("")),
-        (*) => Wyslij("{Escape}", true),
-        (*) => (SilnikGUI.CustomTooltip("SCROLL  🡱 🡳   ➠  ARROWS  🡰 🡲", {ON: (!EkranWygaszony && PokazPodpowiedzi)}), UstawFocusPodMysz(), MouseCtrlLib.AktywujTrybKola((*) => Wyslij("{Left}", true), (*) => Wyslij("{Right}", true), 0, 0, () => SilnikGUI.CustomTooltip(""), "XButton1"), SilnikGUI.CustomTooltip("")),
+        (*) => SendEvent("{Escape}"),
+        (*) => (SilnikGUI.CustomTooltip("SCROLL  🡱 🡳   ➠  ARROWS  🡰 🡲", {ON: (!EkranWygaszony && PokazPodpowiedzi)}), UstawFocusPodMysz(), MouseCtrlLib.AktywujTrybKola((*) => SendEvent("{Left}"), (*) => SendEvent("{Right}"), 0, 0, () => SilnikGUI.CustomTooltip(""), "XButton1"), SilnikGUI.CustomTooltip("")),
         HoldThreshold
     )
 }
 
 myGenesisXButton2(*) {
     Multiklik("XButton2",
-        (*) => Wyslij("{XButton2}"),
-            (*) => (SilnikGUI.CustomTooltip("CTRL  ✲`n..`nSCROLL  🡱 🡳  ➠  ZOOM   ( + ) 🔍 ( - )`n.[4].`n- L E F T -`n.[3].`n(x2) ➠  CTRL+V  📄`n..`n(2xHOLD)  ➠  CTRL+V+LEFT  📄🡳`n.[4].`n- R I G H T -`n.[3].`n(x1)  ➠  CTRL+C  📄📄`n..`n(HOLD)  ➠  CTRL+X  ✂`n..`n(x2)  ➠  CTRL+C+LEFT   📄📄🡳`n..`n(2xHOLD)  ➠  CTRL+X+LEFT  ✂🡳`n.[4].`nX1+SCROLL  🡱 🡳  ➠  CTRL+Z/Y  🡷 🡵`n.[3].`n(x2)  ➠  CTRL+SHIFT+S  ✍`n..`n(2xHOLD)+SCROLL  🡱 🡳  ➠  SCROLL  🞀 ❘❙❚❙❘ 🞂", {ON: (!EkranWygaszony && PokazPodpowiedzi), MargPoz: 2}), MouseCtrlLib.AktywujTrybKola((*) => Wyslij("{WheelUp}"), (*) => Wyslij("{WheelDown}"), (*) => Wyslij("{Ctrl Down}"), (*) => Wyslij("{Ctrl Up}"), () => SilnikGUI.CustomTooltip(""), "XButton2"), SilnikGUI.CustomTooltip("")),
-        (*) => Wyslij("^a", true),
-            (*) => (SilnikGUI.CustomTooltip("SCROLL  🡱 🡳  ➠  SCROLL  🞀 ❘❙❚❙❘ 🞂", {ON: (!EkranWygaszony && PokazPodpowiedzi)}), MouseCtrlLib.AktywujTrybKola((*) => (SendLevel(1), Wyslij("{WheelLeft}", true)), (*) => (SendLevel(1), Wyslij("{WheelRight}", true)), 0, 0, () => SilnikGUI.CustomTooltip(""), "XButton2"), SilnikGUI.CustomTooltip("")),
+        (*) => Send("{XButton2}"),
+            (*) => (SilnikGUI.CustomTooltip("CTRL  ✲`n..`nSCROLL  🡱 🡳  ➠  ZOOM   ( + ) 🔍 ( - )`n.[4].`n- L E F T -`n.[3].`n(x2) ➠  CTRL+V  📄`n..`n(2xHOLD)  ➠  CTRL+V+LEFT  📄🡳`n.[4].`n- R I G H T -`n.[3].`n(x1)  ➠  CTRL+C  📄📄`n..`n(HOLD)  ➠  CTRL+X  ✂`n..`n(x2)  ➠  CTRL+C+LEFT   📄📄🡳`n..`n(2xHOLD)  ➠  CTRL+X+LEFT  ✂🡳`n.[4].`nX1+SCROLL  🡱 🡳  ➠  CTRL+Z/Y  🡷 🡵`n.[3].`n(x2)  ➠  CTRL+SHIFT+S  ✍`n..`n(2xHOLD)+SCROLL  🡱 🡳  ➠  SCROLL  🞀 ❘❙❚❙❘ 🞂", {ON: (!EkranWygaszony && PokazPodpowiedzi), MargPoz: 2}), MouseCtrlLib.AktywujTrybKola((*) => Send("{WheelUp}"), (*) => Send("{WheelDown}"), (*) => Send("{Ctrl Down}"), (*) => Send("{Ctrl Up}"), () => SilnikGUI.CustomTooltip(""), "XButton2"), SilnikGUI.CustomTooltip("")),
+        (*) => SendEvent("^a"),
+            (*) => (SilnikGUI.CustomTooltip("SCROLL  🡱 🡳  ➠  SCROLL  🞀 ❘❙❚❙❘ 🞂", {ON: (!EkranWygaszony && PokazPodpowiedzi)}), MouseCtrlLib.AktywujTrybKola((*) => (SendLevel(1), SendEvent("{WheelLeft}")), (*) => (SendLevel(1), SendEvent("{WheelRight}")), 0, 0, () => SilnikGUI.CustomTooltip(""), "XButton2"), SilnikGUI.CustomTooltip("")),
         HoldThreshold
     )
 }
@@ -1122,24 +1122,24 @@ myGenesisXButton2(*) {
 myGenesisX2LButton(*) {
     Multiklik("LButton",
     (*) => (SilnikGUI.CustomTooltip(""), Click("Left")),
-    (*) => (SilnikGUI.CustomTooltip(""), Wyslij("{Blind}{LButton Down}"), KeyWait("LButton"), Wyslij("{Blind}{LButton Up}")),
-    (*) => (SilnikGUI.CustomTooltip(""), Wyslij("^v")),
-    (*) => (SilnikGUI.CustomTooltip(""), (Click("Left"), Wyslij("^v"))),
+    (*) => (SilnikGUI.CustomTooltip(""), Send("{Blind}{LButton Down}"), KeyWait("LButton"), Send("{Blind}{LButton Up}")),
+    (*) => (SilnikGUI.CustomTooltip(""), Send("^v")),
+    (*) => (SilnikGUI.CustomTooltip(""), (Click("Left"), Send("^v"))),
     HoldThreshold)
 }
 
 myGenesisX2RButton(*) {
     Multiklik("RButton", 
-    (*) => (SilnikGUI.CustomTooltip(""), Wyslij("^c")), 
-    (*) => (SilnikGUI.CustomTooltip(""), Wyslij("^x")), 
-    (*) => (SilnikGUI.CustomTooltip(""), (Wyslij("{Ctrl Up}"), Click("Left"), Wyslij("^c"))), 
-    (*) => (SilnikGUI.CustomTooltip(""), (Wyslij("{Ctrl Up}"), Click("Left"), Wyslij("^x"))), 
+    (*) => (SilnikGUI.CustomTooltip(""), Send("^c")), 
+    (*) => (SilnikGUI.CustomTooltip(""), Send("^x")), 
+    (*) => (SilnikGUI.CustomTooltip(""), (Send("{Ctrl Up}"), Click("Left"), Send("^c"))), 
+    (*) => (SilnikGUI.CustomTooltip(""), (Send("{Ctrl Up}"), Click("Left"), Send("^x"))), 
     HoldThreshold)
 }
 
 myGenesisX2X1(*) {
     SilnikGUI.CustomTooltip("SCROLL  🡱 🡳  ➠  CTRL+Z/Y  🡷 🡵", {ON: (!EkranWygaszony && PokazPodpowiedzi)})
-    MouseCtrlLib.AktywujTrybKola((*) => Wyslij("^z"), (*) => Wyslij("^y"), 0, 0, () => SilnikGUI.CustomTooltip(""), "xbutton2")
+    MouseCtrlLib.AktywujTrybKola((*) => Send("^z"), (*) => Send("^y"), 0, 0, () => SilnikGUI.CustomTooltip(""), "xbutton2")
 }
 
 myToggleProfile(*) {
@@ -1175,15 +1175,9 @@ CzyNadZablokowanymElementem() {
     return (hCtrl && (Utils.GetTag(hCtrl, "IsSilnikScrollbarBtn") || Utils.GetTag(hCtrl, "IsSilnikScrollbarThumb") || Utils.GetTag(hCtrl, "IsSilnikScrollbarTrack")))
 }
 
-; Ukrywa ramki fokusu (WM_UPDATEUISTATE) po symulacji klawiatury
-Wyslij(Klawisze, Event := false) {
-    Event ? SendEvent(Klawisze) : Send(Klawisze)
-    try PostMessage(0x0128, 0x00010001, 0,, "A")
-}
-
 ; Funkcja pomocnicza dla AkcjaRButton, wywoływana przy przytrzymaniu
 _AkcjaRButton_Hold() {
-    PokazDymek := () => !PokazPodpowiedzi ? (SilnikGUI.CustomTooltip(PobierzStatusAudio(), {ON: !EkranWygaszony, czas: 1500})) : SilnikGUI.CustomTooltip("SHIFT  🡱`n..`n" . ((CurrentProfile = 1 or (CurrentProfile = 0 and GenesisActive))? "X1  ➠  Alt+Tab`nX2  ➠  Shift+Alt+Tab`n..`n" : "LEFT  ➠  Alt+Tab`n..`n") . "SCROLL  🡱 🡳  ➠  VOLUME(+/-)`nMIDDLE  ➠  MUTE  🔉X`n.[2].`n" . PobierzStatusAudio(), {ON: !EkranWygaszony}) 
+    PokazDymek := () => !PokazPodpowiedzi ? (SilnikGUI.CustomTooltip(PobierzStatusAudio(), {ON: !EkranWygaszony, czas: 1500})) : SilnikGUI.CustomTooltip("SHIFT  🡱`n..`n" . ((CurrentProfile = 1 or (CurrentProfile = 0 and GenesisActive))? "X1  ➠  Alt+Tab`nX2  ➠  Shift+Alt+Tab`n..`n" : "LEFT  ➠  Alt+Tab`n..`n") . "2X  ➠  f11`n..`nSCROLL  🡱 🡳  ➠  VOLUME(+/-)`nMIDDLE  ➠  MUTE  🔉X`n.[2].`n" . PobierzStatusAudio(), {ON: !EkranWygaszony}) 
     CzyscDymek := (*) => SilnikGUI.CustomTooltip()
 
     ; Timer dymka
@@ -1196,8 +1190,8 @@ _AkcjaRButton_Hold() {
     MouseCtrlLib.AktywujTrybKola(
         (*) => (SetTimer(PokazDymek, 0), ZmianaGlosnosci(VolStepMouse)), 
         (*) => (SetTimer(PokazDymek, 0), ZmianaGlosnosci(-VolStepMouse)), 
-        (*) => Wyslij("{LShift Down}"), 
-        (*) => Wyslij("{LShift Up}"),
+        (*) => Send("{LShift Down}"), 
+        (*) => Send("{LShift Up}"),
         (*) => "", 
         "RButton"
     )
@@ -1213,7 +1207,7 @@ AkcjaRButton() {
     Multiklik("RButton", 
         (*) => (SendInput("{RButton Down}"), Sleep(1), SendInput("{RButton Up}")),
         _AkcjaRButton_Hold,
-        "", "", HoldThreshold, 5
+        (*) =>SendEvent("{F11}"), "", HoldThreshold, 5
     )
 }
 
