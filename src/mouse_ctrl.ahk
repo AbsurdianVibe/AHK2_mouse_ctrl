@@ -1098,13 +1098,14 @@ myLegendaLButton(*) {
         LegendaGui.Hide()
     }
 }
+arrowFocusNav(button:="XButton1") => (SilnikGUI.CustomTooltip("SCROLL  🡱 🡳   ➠  ARROWS  🡰 🡲", {ON: (!EkranWygaszony && PokazPodpowiedzi)}), UstawFocusPodMysz(), MouseCtrlLib.AktywujTrybKola((*) => SendEvent("{Left}"), (*) => SendEvent("{Right}"), 0, 0, () => SilnikGUI.CustomTooltip(""), button), SilnikGUI.CustomTooltip(""))
 
 myGenesisXButton1(*) {
     Multiklik("XButton1", 
         (*) => Send("{XButton1}"),
         (*) => (!PokazPodpowiedzi ? (SilnikGUI.CustomTooltip("Brightness: " . currentBrightness . "%  ◑", {ON: !EkranWygaszony, czas: 1500})) : (SilnikGUI.CustomTooltip("SCROLL  ➠  BRIGHTNESS  ◑`n..`nMIDDLE  ➠  SCREEN OFF  💻`n.[2].`n(x2)  ➠  ESC  🡰`n..`n(2xHOLD)+SCROLL  🡱 🡳  ➠  ARROWS  🡰 🡲`n.[2].`nBrightness: " . currentBrightness . "%  ◑", {ON: !EkranWygaszony, MargPoz: 4})), MouseCtrlLib.AktywujTrybKola((*) => ZmianaJasnosci(BrightnessStepMouse), (*) => ZmianaJasnosci(-BrightnessStepMouse),(*) => Hotkey("*RButton", (*) => (UsunTip(), WygasEkran("XButton1")), "On"), (*) => Hotkey("*RButton", (*) => AkcjaRButton(), "On"), 0, "XButton1"), SilnikGUI.CustomTooltip("")),
         (*) => SendEvent("{Escape}"),
-        (*) => (SilnikGUI.CustomTooltip("SCROLL  🡱 🡳   ➠  ARROWS  🡰 🡲", {ON: (!EkranWygaszony && PokazPodpowiedzi)}), UstawFocusPodMysz(), MouseCtrlLib.AktywujTrybKola((*) => SendEvent("{Left}"), (*) => SendEvent("{Right}"), 0, 0, () => SilnikGUI.CustomTooltip(""), "XButton1"), SilnikGUI.CustomTooltip("")),
+        (*) => arrowFocusNav(),
         HoldThreshold
     )
 }
@@ -1207,7 +1208,8 @@ AkcjaRButton() {
     Multiklik("RButton", 
         (*) => (SendInput("{RButton Down}"), Sleep(1), SendInput("{RButton Up}")),
         _AkcjaRButton_Hold,
-        (*) =>SendEvent("{F11}"), "", HoldThreshold, 5
+        (*) =>SendEvent("{F11}"), 
+        (*) => ((CurrentProfile = 2 or (CurrentProfile = 0 and !GenesisActive)) ? arrowFocusNav("RButton") : ""), HoldThreshold, 5
     )
 }
 
