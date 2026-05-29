@@ -787,9 +787,9 @@ TrescLegendy(profil, genesisState) {
     dane := {Header: "", KlawHeader: "", KlawText: "", MyszHeader: "", MyszText: "", KlawKolor: KolorTekst, MyszKolor: KolorTekst}
     
     ; Definicje tekstów
-    txtKlawiatura := "Ctrl+Alt+R = Unlock keys`nCtrl+Alt+P = PrintScreen`nCtrl+F1/F2 = Brightness`nCtrl+F12 = Change profile`nShift + `` = ~"
-    txtGenesis    := "Right = Shift`nRight + Wheel = Volume`nRight + Middle = Mute`nX1+Wheel = Brightness`nX1 + Right = Screen off`nX1(2x) = Esc`nX1(2xHold) + Wheel  🡱 🡳 = 🡰 🡲`nX2(Hold) = Ctrl`nX2(2x) = Save`nX2(2xHold) + Wheel  🡱 🡳 = Wheel  🡰 🡲`nX2 + X1 + Wheel  🡱 🡳 = Undo / Redo`nAlt + Wheel  🡱 🡳 =    - | | -`nX2 + Left = Ctrl+V`nX2 + Left(Hold) = Left+Ctrl+V`nX2 + Right = Ctrl+C`nX2 + Right(Hold) = Ctrl+X`nX2 + Right(2x) = Left+Ctrl+C`nX2 + Right(2xHold) = Left+Ctrl+X"
-    txtStandard   := "Right = Shift`nRight + Wheel = Volume`nRight + Middle = Mute`nRight + Left = Alt+Tab`nLeft + Wheel = Brightness`nLeft + Middle = Screen off`nMButton + Wheel  🡱 🡳 = Wheel  🡰 🡲"
+    txtKlawiatura := "Ctrl+Alt+R = Unlock keys`nCtrl+Alt+P = Screenshot`nCtrl+F1/F2 = Brightness`nCtrl+F12 = Change profile`nShift + `` = ~"
+    txtGenesis    := "Right(Hold) = Shift`nRight + Wheel = Volume`nRight + Middle = Mute`nRight + X1 = Alt+Tab`nRight + X2 = Shift+Alt+Tab`nRight(2x) = F11`nX1 + Wheel = Brightness`nX1 + Middle = Screen off`nX1(2x) = Esc`nX1(2xHold) + Wheel = Arrows 🡰 🡲`nX2(Hold) = Ctrl`nX2(Hold) + Wheel = Zoom 🔍`nX2 + Left(2x) = Ctrl+V`nX2 + Left(2xHold) = LClick+Ctrl+V`nX2 + Right = Ctrl+C`nX2 + Right(Hold) = Ctrl+X`nX2 + Right(2x) = LClick+Ctrl+C`nX2 + Right(2xHold) = LClick+Ctrl+X`nX2 + X1 + Wheel = Ctrl+Z/Y`nX2(2x) = Ctrl+Shift+S`nX2(2xHold) + Wheel = Horiz. Scroll"
+    txtStandard   := "Right(Hold) = Shift`nRight + Wheel = Volume`nRight + Middle = Mute`nRight + Left = Alt+Tab`nRight(2x) = F11`nRight(2xHold) + Wheel = Arrows 🡰 🡲`nLeft + Wheel = Brightness`nLeft + Middle = Screen off`nLeft + Right = Alt+Tab"
 
     ; Wartości domyślne
     dane.Header     := (profil == 0) ? "AUTO" : ((profil == 4) ? "" : "MANUAL")
@@ -1178,7 +1178,7 @@ CzyNadZablokowanymElementem() {
 
 ; Funkcja pomocnicza dla AkcjaRButton, wywoływana przy przytrzymaniu
 _AkcjaRButton_Hold() {
-    PokazDymek := () => !PokazPodpowiedzi ? (SilnikGUI.CustomTooltip(PobierzStatusAudio(), {ON: !EkranWygaszony, czas: 1500})) : SilnikGUI.CustomTooltip("SHIFT  🡱`n..`n" . ((CurrentProfile = 1 or (CurrentProfile = 0 and GenesisActive))? "X1  ➠  Alt+Tab`nX2  ➠  Shift+Alt+Tab`n..`n" : "LEFT  ➠  Alt+Tab`n..`n") . "2X  ➠  f11`n..`nSCROLL  🡱 🡳  ➠  VOLUME(+/-)`nMIDDLE  ➠  MUTE  🔉X`n.[2].`n" . PobierzStatusAudio(), {ON: !EkranWygaszony}) 
+    PokazDymek := () => !PokazPodpowiedzi ? (SilnikGUI.CustomTooltip(PobierzStatusAudio(), {ON: !EkranWygaszony, czas: 1500})) : SilnikGUI.CustomTooltip("SHIFT  🡱`n..`n" . ((CurrentProfile = 1 or (CurrentProfile = 0 and GenesisActive))? "X1  ➠  Alt+Tab`nX2  ➠  Shift+Alt+Tab`n..`n" : "LEFT  ➠  Alt+Tab`n..`n(2xHOLD)+SCROLL  🡱 🡳  ➠  ARROWS  🡰 🡲`n..`n") . "2X  ➠  f11`n..`nSCROLL  🡱 🡳  ➠  VOLUME(+/-)`nMIDDLE  ➠  MUTE  🔉X`n.[2].`n" . PobierzStatusAudio(), {ON: !EkranWygaszony}) 
     CzyscDymek := (*) => SilnikGUI.CustomTooltip()
 
     ; Timer dymka
@@ -1208,7 +1208,7 @@ AkcjaRButton() {
     Multiklik("RButton", 
         (*) => (SendInput("{RButton Down}"), Sleep(1), SendInput("{RButton Up}")),
         _AkcjaRButton_Hold,
-        (*) =>SendEvent("{F11}"), 
+        (*) =>(UstawFocusPodMysz(), SendEvent("{F11}")), 
         (*) => ((CurrentProfile = 2 or (CurrentProfile = 0 and !GenesisActive)) ? arrowFocusNav("RButton") : ""), HoldThreshold, 5
     )
 }
