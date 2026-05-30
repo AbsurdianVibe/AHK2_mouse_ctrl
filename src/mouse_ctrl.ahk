@@ -46,8 +46,9 @@ if !FileExist(IniPath) { ; Init default INI
     IniWrite(1, IniPath, "Settings", "AdminStartLvl")
     IniWrite(1, IniPath, "Settings", "PokazPodpowiedzi")
     IniWrite(0.15, IniPath, "Settings", "HoldThreshold") ; Domyślny DoubleClick (s)
-    IniWrite(0, IniPath, "Settings", "LastGenesisActive")
+    IniWrite(0, IniPath, "Settings", "LastCustomActive")
     IniWrite(10, IniPath, "Settings", "LastBrightness")
+    IniWrite("HID\VID_4E53&PID_5407", IniPath, "Settings", "TargetMouseID")
 }
 
 ; Wczytywanie ustawień
@@ -71,7 +72,7 @@ class DaneGlobalne {
         global PokazPodpowiedzi    := Number(myRead("PokazPodpowiedzi", 1))
         global myAdminStartLvl     := Number(myRead("AdminStartLvl", 1))
         global HoldThreshold       := Float(myRead("HoldThreshold", 0.15))
-        global ListaProfili        := ["AUTO (Detect)", "Genesis Mouse + Keyboard", "Standard Mouse + Keyboard", "Keyboard Only", "OFF Mode"]
+        global ListaProfili        := ["AUTO (Detect)", "Custom Mouse + Keyboard", "Standard Mouse + Keyboard", "Keyboard Only", "OFF Mode"]
 
         if FileExist(A_ScriptDir . "\mouse_ctrl.ico")
             TraySetIcon(A_ScriptDir . "\mouse_ctrl.ico")
@@ -85,8 +86,8 @@ class DaneGlobalne {
         global szerListy := 200
         global Szerokośćpopupow := 500 
         global SzerkokośćOknaLegendy := 200
-        global TargetMouseID := "HID\VID_4E53&PID_5407" 
-        global GenesisActive := Number(myRead("LastGenesisActive", 0))
+        global TargetMouseID := myRead("TargetMouseID", "HID\VID_4E53&PID_5407") 
+        global CustomActive := Number(myRead("LastCustomActive", 0))
         global DystansDoZamkniecia := 100 ; Dystans w px do zamknięcia popupu
         global MyszNadIkona := false
         global TipLive := 5000 ; Czas życia tooltipa (ms)
@@ -207,13 +208,13 @@ myFetchHardwareState(mode) {
 }
 
 /** Extracted logic to update mouse state and GUI */
-myUpdateGenesis(val) {
-    global GenesisActive, CurrentProfile
+myUpdateCustom(val) {
+    global CustomActive, CurrentProfile
     if (CurrentProfile == 0) {
-        myOldState := GenesisActive
-        GenesisActive := val
-        if (myOldState != GenesisActive) {
-            PokazTip((GenesisActive ? "DETECTED" : "DISCONNECTED") . " Mouse: Genesis", GenesisActive ? "9FFB88" : "FA8072")
+        myOldState := CustomActive
+        CustomActive := val
+        if (myOldState != CustomActive) {
+            PokazTip((CustomActive ? "DETECTED" : "DISCONNECTED") . " Mouse: Custom", CustomActive ? "9FFB88" : "FA8072")
             LegendaIstnieje() && AktualizujListe()
         }
     }
@@ -229,7 +230,7 @@ myOnHardwareStateReady(wParam, lParam, msg, hwnd) {
     myParts := StrSplit(myPayload, myIpcSeparator)
     
     myActions := [
-        (val) => myUpdateGenesis(Number(val)), 
+        (val) => myUpdateCustom(Number(val)), 
         (val) => currentBrightness := Number(val),
         (val) => myAudioCache := String(val)
     ]
@@ -246,7 +247,7 @@ myOnHardwareStateReady(wParam, lParam, msg, hwnd) {
 ; #region --- FUNKCJE SYSTEMOWE ---
 
 ZapiszStanSprzetowy(ExitReason, ExitCode) {
-    IniWrite(GenesisActive, IniPath, "Settings", "LastGenesisActive")
+    IniWrite(CustomActive, IniPath, "Settings", "LastCustomActive")
     IniWrite(currentBrightness, IniPath, "Settings", "LastBrightness")
     myFetchHardwareState(4)
 }
@@ -285,7 +286,7 @@ OnTrayMouseEvent(wParam, lParam, msg, hwnd) {
 }
 
 ; Pobiera dynamicznie wyliczoną nazwę aktywnego profilu.
-PobierzNazweProfilu() => ["AUTO: " . (GenesisActive ? "Genesis Mouse" : "Standard Mouse"), "MANUAL: Genesis Mouse", "MANUAL: Standard Mouse", "Keyboard Only", "OFF Mode (Shortcuts disabled)"][CurrentProfile + 1]
+PobierzNazweProfilu() => ["AUTO: " . (CustomActive ? "Custom Mouse" : "Standard Mouse"), "MANUAL: Custom Mouse", "MANUAL: Standard Mouse", "Keyboard Only", "OFF Mode (Shortcuts disabled)"][CurrentProfile + 1]
 
 UstawProfil(nr, pokazacTip := false) {
     global CurrentProfile := nr
@@ -393,7 +394,9 @@ PokazUstawienia(*) {
     Tytul.SetFont("norm")
     
     StartProf := GlUs.DodajDDList(ListaProfili, 0, DefaultProfile + 1, szerDD, "x" . ((SzerOknUst+pad)-szerDD)/2 . " y+5")
-    GlUs.Ramka(Tytul, StartProf, 8)
+    myDetectBtn := GlUs.DodajPrzycisk("Mouse Detect", myDetectMouseNative, "w" . szerDD . " x" . ((SzerOknUst+pad)-szerDD)/2 . " y+5")
+    myDetectBtn.HoverAction := (*) => SilnikGUI.CustomTooltip("Detects the hardware ID of your Custom Mouse.`nRecommended: Keep only ONE mouse connected during detection.", {delayoff: 500, delayon: 500, trybPozycji: myDetectBtn, Align: "up-5", Transparent: 0.1, TransClick: 1})
+    GlUs.Ramka(Tytul, myDetectBtn, 8)
     Edit_BM := GlUs.DodajWierszKonfiguracji("Brightness (Mouse):", BrightnessStepMouse, {trybWalidacji: 0, minVal: 1, maxVal: 100, skok: 1, pozycja: "x20 y+20", SzerText: 140})
     Edit_BK := GlUs.DodajWierszKonfiguracji("Brightness (Kbd):", BrightnessStepKbd, {trybWalidacji: 0, minVal: 1, maxVal: 100, skok: 1, pozycja: "x20 y+10", SzerText: 140})
     Edit_VM := GlUs.DodajWierszKonfiguracji("Volume (Mouse):", VolStepMouse, {trybWalidacji: 0, minVal: 1, maxVal: 100, skok: 1, pozycja: "x20 y+10", SzerText: 140})
@@ -571,6 +574,42 @@ myCheckAutostartTask() {
     return false
 }
 
+/** Detects the first valid mouse HID and saves it to config */
+myDetectMouseNative(*) {
+    global TargetMouseID, IniPath, GlUs
+    myNumDevices := 0
+    DllCall("User32\GetRawInputDeviceList", "Ptr", 0, "UInt*", &myNumDevices, "UInt", A_PtrSize * 2)
+    if (!myNumDevices)
+        return
+
+    myRawInputDeviceList := Buffer(myNumDevices * (A_PtrSize * 2), 0)
+    DllCall("User32\GetRawInputDeviceList", "Ptr", myRawInputDeviceList, "UInt*", &myNumDevices, "UInt", A_PtrSize * 2)
+
+    Loop myNumDevices {
+        myHandle := NumGet(myRawInputDeviceList, (A_Index - 1) * (A_PtrSize * 2), "Ptr")
+        myType := NumGet(myRawInputDeviceList, ((A_Index - 1) * (A_PtrSize * 2)) + A_PtrSize, "UInt")
+
+        if (myType == 0) { ; 0 = RIM_TYPEMOUSE
+            myNameLength := 0
+            DllCall("User32\GetRawInputDeviceInfo", "Ptr", myHandle, "UInt", 0x20000007, "Ptr", 0, "UInt*", &myNameLength)
+            if (myNameLength > 0) {
+                myNameBuffer := Buffer(myNameLength * 2, 0)
+                DllCall("User32\GetRawInputDeviceInfo", "Ptr", myHandle, "UInt", 0x20000007, "Ptr", myNameBuffer, "UInt*", &myNameLength)
+                if RegExMatch(StrReplace(StrGet(myNameBuffer), "#", "\"), "i)(HID\\VID_[0-9A-F]+&PID_[0-9A-F]+)", &myMatch) {
+                    TargetMouseID := myMatch[1]
+                    IniWrite(TargetMouseID, IniPath, "Settings", "TargetMouseID")
+                    if WinExist("ahk_id " GlUs.GuiObj.Hwnd)
+                        WinClose("ahk_id " GlUs.GuiObj.Hwnd)
+                    PokazTip("Detected & Saved:`n" . TargetMouseID . "`nRestarting...", "9FFB88")
+                    SetTimer(() => Reload(), -2000) ; Fast script reload to apply new ID to worker
+                    return
+                }
+            }
+        }
+    }
+    SilnikGUI.OknoBledu("DETECTION FAILED", "No hardware matching HID\VID pattern found.", "Check your USB connection.", GlUs.GuiObj.Hwnd)
+}
+
 ; #endregion
 ;----------------------------------------------------------------------------------------------------------------------------------------------
 ; #region --- OKNO LEGENDY ---
@@ -581,7 +620,7 @@ myCheckAutostartTask() {
 
 PokazListeSkrotow(*) {
     global LegendaGui, CurrentProfile, GuiControls, GruboscRamki
-    global SzerkokośćOknaLegendy, GenesisActive
+    global SzerkokośćOknaLegendy, CustomActive
     global WymiaryLegendy 
 
     ; 1. Odśwież istniejące
@@ -592,7 +631,7 @@ PokazListeSkrotow(*) {
     }
 
     ; 2. Wstepnie Oblicz szerokość
-    dane_startowe := TrescLegendy(CurrentProfile, GenesisActive)
+    dane_startowe := TrescLegendy(CurrentProfile, CustomActive)
     WymiaryLegendy := ObliczSzerokoscLegendy(dane_startowe)
     SzerkokośćOknaLegendy := WymiaryLegendy.Total
     
@@ -643,12 +682,12 @@ PokazListeSkrotow(*) {
 }
 
 AktualizujListe() { 
-    global CurrentProfile, GuiControls, GenesisActive, SzerkokośćOknaLegendy, LegendaGui, WymiaryLegendy, GruboscRamki
+    global CurrentProfile, GuiControls, CustomActive, SzerkokośćOknaLegendy, LegendaGui, WymiaryLegendy, GruboscRamki
     
     try GuiControls.DDL.Choose(CurrentProfile + 1)
     
     ; 1. Dane i wymiary
-    dane := TrescLegendy(CurrentProfile, GenesisActive)
+    dane := TrescLegendy(CurrentProfile, CustomActive)
     WymiaryLegendy := ObliczSzerokoscLegendy(dane)
     SzerkokośćOknaLegendy := WymiaryLegendy.Total
     
@@ -779,12 +818,12 @@ OdswiezSekcje(yStart, cHead, cL, cR, cC, txtHead, txtContent, kolor, wL, wR, wSi
 ; SEKCJA 3: DANE I OBLICZENIA
 ; ============================================================================================================================================================
 
-TrescLegendy(profil, genesisState) {
+TrescLegendy(profil, CustomState) {
     dane := {Header: "", KlawHeader: "", KlawText: "", MyszHeader: "", MyszText: "", KlawKolor: KolorTekst, MyszKolor: KolorTekst}
     
     ; Definicje tekstów
     txtKlawiatura := "Ctrl+Alt+R = Unlock keys`nCtrl+Alt+P = Screenshot`nCtrl+F1/F2 = Brightness`nCtrl+F12 = Change profile`nShift + `` = ~"
-    txtGenesis    := "Right(Hold) = Shift`nRight + Wheel = Volume`nRight + Middle = Mute`nRight + X1 = Alt+Tab`nRight + X2 = Shift+Alt+Tab`nRight(2x) = F11`nX1 + Wheel = Brightness`nX1 + Middle = Screen off`nX1(2x) = Esc`nX1(2xHold) + Wheel = Arrows 🡰 🡲`nX2(Hold) = Ctrl`nX2(Hold) + Wheel = Zoom 🔍`nX2 + Left(2x) = Ctrl+V`nX2 + Left(2xHold) = LClick+Ctrl+V`nX2 + Right = Ctrl+C`nX2 + Right(Hold) = Ctrl+X`nX2 + Right(2x) = LClick+Ctrl+C`nX2 + Right(2xHold) = LClick+Ctrl+X`nX2 + X1 + Wheel = Ctrl+Z/Y`nX2(2x) = Ctrl+Shift+S`nX2(2xHold) + Wheel = Horiz. Scroll"
+    txtCustom    := "Right(Hold) = Shift`nRight + Wheel = Volume`nRight + Middle = Mute`nRight + X1 = Alt+Tab`nRight + X2 = Shift+Alt+Tab`nRight(2x) = F11`nX1 + Wheel = Brightness`nX1 + Middle = Screen off`nX1(2x) = Esc`nX1(2xHold) + Wheel = Arrows 🡰 🡲`nX2(Hold) = Ctrl`nX2(Hold) + Wheel = Zoom 🔍`nX2 + Left(2x) = Ctrl+V`nX2 + Left(2xHold) = LClick+Ctrl+V`nX2 + Right = Ctrl+C`nX2 + Right(Hold) = Ctrl+X`nX2 + Right(2x) = LClick+Ctrl+C`nX2 + Right(2xHold) = LClick+Ctrl+X`nX2 + X1 + Wheel = Ctrl+Z/Y`nX2(2x) = Ctrl+Shift+S`nX2(2xHold) + Wheel = Horiz. Scroll"
     txtStandard   := "Right(Hold) = Shift`nRight + Wheel = Volume`nRight + Middle = Mute`nRight + Left = Alt+Tab`nRight(2x) = F11`nRight(2xHold) + Wheel = Arrows / H-Scroll (LClick)`nLeft + Wheel = Brightness`nLeft + Middle = Screen off`nLeft + Right = Alt+Tab"
 
     ; Wartości domyślne
@@ -792,8 +831,8 @@ TrescLegendy(profil, genesisState) {
     dane.KlawHeader := (profil == 4) ? "ALL DISABLED" : "— KEYBOARD —"
     dane.KlawText   := (profil == 4) ? "Shortcuts disabled" : txtKlawiatura
     dane.KlawKolor  := (profil == 4) ? "c" . KolorWarn : KolorTekst
-    dane.MyszHeader := [(genesisState ? "— GENESIS MOUSE —" : "— STANDARD MOUSE —"), "— GENESIS MOUSE —", "— STANDARD MOUSE —", "--- MOUSE ---", ""][profil + 1]
-    dane.MyszText   := [(genesisState ? txtGenesis : txtStandard), txtGenesis, txtStandard, "Shortcuts disabled", ""][profil + 1]
+    dane.MyszHeader := [(CustomState ? "— Custom MOUSE —" : "— STANDARD MOUSE —"), "— Custom MOUSE —", "— STANDARD MOUSE —", "--- MOUSE ---", ""][profil + 1]
+    dane.MyszText   := [(CustomState ? txtCustom : txtStandard), txtCustom, txtStandard, "Shortcuts disabled", ""][profil + 1]
     dane.MyszKolor  := (profil == 3) ? "c" . KolorNieaktywny : KolorTekst
     return dane
 }
@@ -1005,23 +1044,23 @@ myBindLateHotkeys() {
     HotIf((*) => LegendaIstnieje() && WinGetMinMax("ahk_id " LegendaGui.hwnd) != -1)
     Hotkey("F1", (*) => (PokazUstawienia(), LegendaGui.Hide()), "On")
 
-    ; --- MYSZ GENESIS ---
-    HotIf((*) => (CurrentProfile == 1 || (CurrentProfile == 0 && GenesisActive)))
+    ; --- MYSZ Custom ---
+    HotIf((*) => (CurrentProfile == 1 || (CurrentProfile == 0 && CustomActive)))
     Hotkey("*RButton", (*) => AkcjaRButton(), "On")
-    Hotkey("XButton1", myGenesisXButton1, "On")
-    Hotkey("XButton2", myGenesisXButton2, "On")
-    Hotkey("~XButton2 & LButton", myGenesisX2LButton, "On")
-    Hotkey("~XButton2 & RButton", myGenesisX2RButton, "On")
-    Hotkey("XButton2 & XButton1", myGenesisX2X1, "On")
+    Hotkey("XButton1", myCustomXButton1, "On")
+    Hotkey("XButton2", myCustomXButton2, "On")
+    Hotkey("~XButton2 & LButton", myCustomX2LButton, "On")
+    Hotkey("~XButton2 & RButton", myCustomX2RButton, "On")
+    Hotkey("XButton2 & XButton1", myCustomX2X1, "On")
     Hotkey("~RButton & XButton1", (*) => (myAltTabState.Active := true, Send("{Blind}{Alt down}{Tab}")), "On")
     Hotkey("~RButton & XButton2", (*) => (myAltTabState.Active := true, Send("{Blind}{Alt down}{Shift down}{Tab}{Shift up}")), "On")
     Hotkey("*RButton Up", (*) => (myAltTabState.Active ? (Send("{Alt up}"), myAltTabState.Active := false) : ""), "On")
 
     ; --- MYSZ STANDARDOWA ---
-    HotIf((*) => (CurrentProfile == 2 || (CurrentProfile == 0 && !GenesisActive)))
+    HotIf((*) => (CurrentProfile == 2 || (CurrentProfile == 0 && !CustomActive)))
     Hotkey("RButton", (*) => AkcjaRButton(), "On")
     
-    HotIf((*) => (CurrentProfile == 2 || (CurrentProfile == 0 && !GenesisActive)) && !CzyNadZablokowanymElementem() && !myStandardProxyActive)
+    HotIf((*) => (CurrentProfile == 2 || (CurrentProfile == 0 && !CustomActive)) && !CzyNadZablokowanymElementem() && !myStandardProxyActive)
     Hotkey("~LButton & WheelUp", (*) => (UsunTip(), ZmianaJasnosci(BrightnessStepMouse)), "On")
     Hotkey("~LButton & WheelDown", (*) => (UsunTip(), ZmianaJasnosci(-BrightnessStepMouse)), "On")
     Hotkey("~LButton & MButton", (*) => (UsunTip(), WygasEkran("LButton")), "On")
@@ -1132,7 +1171,7 @@ myStandardScrollMode(button := "RButton", togle := "*LButton") {
     MouseCtrlLib.AktywujTrybKola(myWheelUp, myWheelDown, myOnStart, myOnStop, () => SilnikGUI.CustomTooltip(""), button)
 }
 
-myGenesisXButton1(*) {
+myCustomXButton1(*) {
     Multiklik("XButton1", 
         (*) => Send("{XButton1}"),
         (*) => (!PokazPodpowiedzi ? (SilnikGUI.CustomTooltip("Brightness: " . currentBrightness . "%  ◑", {ON: !EkranWygaszony, czas: 1500})) : (SilnikGUI.CustomTooltip("SCROLL  ➠  BRIGHTNESS  ◑`n..`nMIDDLE  ➠  SCREEN OFF  💻`n.[2].`n(x2)  ➠  ESC  🡰`n..`n(2xHOLD)+SCROLL  🡱 🡳  ➠  ARROWS  🡰 🡲`n.[2].`nBrightness: " . currentBrightness . "%  ◑", {ON: !EkranWygaszony, MargPoz: 4})), MouseCtrlLib.AktywujTrybKola((*) => ZmianaJasnosci(BrightnessStepMouse), (*) => ZmianaJasnosci(-BrightnessStepMouse),(*) => Hotkey("*RButton", (*) => (UsunTip(), WygasEkran("XButton1")), "On"), (*) => Hotkey("*RButton", (*) => AkcjaRButton(), "On"), 0, "XButton1"), SilnikGUI.CustomTooltip("")),
@@ -1142,7 +1181,7 @@ myGenesisXButton1(*) {
     )
 }
 
-myGenesisXButton2(*) {
+myCustomXButton2(*) {
     Multiklik("XButton2",
         (*) => Send("{XButton2}"),
             (*) => (SilnikGUI.CustomTooltip("CTRL  ✲`n..`nSCROLL  🡱 🡳  ➠  ZOOM   ( + ) 🔍 ( - )`n.[4].`n- L E F T -`n.[3].`n(x2) ➠  CTRL+V  📄`n..`n(2xHOLD)  ➠  CTRL+V+LEFT  📄🡳`n.[4].`n- R I G H T -`n.[3].`n(x1)  ➠  CTRL+C  📄📄`n..`n(HOLD)  ➠  CTRL+X  ✂`n..`n(x2)  ➠  CTRL+C+LEFT   📄📄🡳`n..`n(2xHOLD)  ➠  CTRL+X+LEFT  ✂🡳`n.[4].`nX1+SCROLL  🡱 🡳  ➠  CTRL+Z/Y  🡷 🡵`n.[3].`n(x2)  ➠  CTRL+SHIFT+S  ✍`n..`n(2xHOLD)+SCROLL  🡱 🡳  ➠  SCROLL  🞀 ❘❙❚❙❘ 🞂", {ON: (!EkranWygaszony && PokazPodpowiedzi), MargPoz: 2}), MouseCtrlLib.AktywujTrybKola((*) => Send("{WheelUp}"), (*) => Send("{WheelDown}"), (*) => Send("{Ctrl Down}"), (*) => Send("{Ctrl Up}"), () => SilnikGUI.CustomTooltip(""), "XButton2"), SilnikGUI.CustomTooltip("")),
@@ -1152,7 +1191,7 @@ myGenesisXButton2(*) {
     )
 }
 
-myGenesisX2LButton(*) {
+myCustomX2LButton(*) {
     Multiklik("LButton",
     (*) => (SilnikGUI.CustomTooltip(""), Click("Left")),
     (*) => (SilnikGUI.CustomTooltip(""), Send("{Blind}{LButton Down}"), KeyWait("LButton"), Send("{Blind}{LButton Up}")),
@@ -1161,7 +1200,7 @@ myGenesisX2LButton(*) {
     HoldThreshold)
 }
 
-myGenesisX2RButton(*) {
+myCustomX2RButton(*) {
     Multiklik("RButton", 
     (*) => (SilnikGUI.CustomTooltip(""), Send("^c")), 
     (*) => (SilnikGUI.CustomTooltip(""), Send("^x")), 
@@ -1170,7 +1209,7 @@ myGenesisX2RButton(*) {
     HoldThreshold)
 }
 
-myGenesisX2X1(*) {
+myCustomX2X1(*) {
     SilnikGUI.CustomTooltip("SCROLL  🡱 🡳  ➠  CTRL+Z/Y  🡷 🡵", {ON: (!EkranWygaszony && PokazPodpowiedzi)})
     MouseCtrlLib.AktywujTrybKola((*) => Send("^z"), (*) => Send("^y"), 0, 0, () => SilnikGUI.CustomTooltip(""), "xbutton2")
 }
@@ -1193,7 +1232,7 @@ myKillTipLButton(*) {
 ;----------------------------------------------------------------------------------------------------------------------------------------------
 ; #region Funkcje Pomocnicze - główne skróty
 LButtonStandardTip(czasUspienia := HoldThreshold*1000) {
-    if !(CurrentProfile = 2 or (CurrentProfile = 0 and !GenesisActive))
+    if !(CurrentProfile = 2 or (CurrentProfile = 0 and !CustomActive))
         return
 
     (!PokazPodpowiedzi) ? (SilnikGUI.CustomTooltip("Brightness: " . currentBrightness . "%  ◑", {DelayON: czasUspienia, ON: !EkranWygaszony, czas: 1500})) : SilnikGUI.CustomTooltip("SCROLL  ➠  BRIGHTNESS  ◑`n.[1].`nMIDDLE  ➠  SCREEN OFF  💻`n.[1].`nRIGHT  ➠  ALT+TAB`n.[2].`nBrightness: " . currentBrightness . "%  ◑", {DelayON : czasUspienia, ON: !EkranWygaszony})
@@ -1209,7 +1248,7 @@ CzyNadZablokowanymElementem() {
 
 ; Funkcja pomocnicza dla AkcjaRButton, wywoływana przy przytrzymaniu
 _AkcjaRButton_Hold() {
-    PokazDymek := () => !PokazPodpowiedzi ? (SilnikGUI.CustomTooltip(PobierzStatusAudio(), {ON: !EkranWygaszony, czas: 1500})) : SilnikGUI.CustomTooltip("SHIFT  🡱`n..`n" . ((CurrentProfile = 1 or (CurrentProfile = 0 and GenesisActive))? "X1  ➠  Alt+Tab`nX2  ➠  Shift+Alt+Tab`n..`n" : "LEFT  ➠  Alt+Tab`n..`n(2xHOLD)+SCROLL  🡱 🡳  ➠  ARROWS / H-SCROLL`n..`n") . "2X  ➠  f11`n..`nSCROLL  🡱 🡳  ➠  VOLUME(+/-)`nMIDDLE  ➠  MUTE  🔉X`n.[2].`n" . PobierzStatusAudio(), {ON: !EkranWygaszony}) 
+    PokazDymek := () => !PokazPodpowiedzi ? (SilnikGUI.CustomTooltip(PobierzStatusAudio(), {ON: !EkranWygaszony, czas: 1500})) : SilnikGUI.CustomTooltip("SHIFT  🡱`n..`n" . ((CurrentProfile = 1 or (CurrentProfile = 0 and CustomActive))? "X1  ➠  Alt+Tab`nX2  ➠  Shift+Alt+Tab`n..`n" : "LEFT  ➠  Alt+Tab`n..`n(2xHOLD)+SCROLL  🡱 🡳  ➠  ARROWS / H-SCROLL`n..`n") . "2X  ➠  f11`n..`nSCROLL  🡱 🡳  ➠  VOLUME(+/-)`nMIDDLE  ➠  MUTE  🔉X`n.[2].`n" . PobierzStatusAudio(), {ON: !EkranWygaszony}) 
     CzyscDymek := (*) => SilnikGUI.CustomTooltip()
 
     ; Timer dymka
@@ -1240,7 +1279,7 @@ AkcjaRButton() {
         (*) => (SendInput("{RButton Down}"), SendInput("{RButton Up}")),
         _AkcjaRButton_Hold,
         (*) =>(UstawFocusPodMysz(), SendEvent("{F11}")), 
-        (*) => ((CurrentProfile = 2 or (CurrentProfile = 0 and !GenesisActive)) ? myStandardScrollMode("RButton") : ""), HoldThreshold, 5
+        (*) => ((CurrentProfile = 2 or (CurrentProfile = 0 and !CustomActive)) ? myStandardScrollMode("RButton") : ""), HoldThreshold, 5
     )
 }
 
