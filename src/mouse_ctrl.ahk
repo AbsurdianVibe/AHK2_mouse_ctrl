@@ -172,10 +172,6 @@ AsynchronicznaInicjalizacja() {
         myWorkerHwnd := WinWait("ahk_class AutoHotkey ahk_pid " WorkerPID,, 3)
     }
 
-    myWorkerPath := A_ScriptDir . "\myPreWarmWorker.ahk"
-    try Run('"' . A_AhkPath . '" "' . myWorkerPath . '"')
-    
-    
     ; Cache Shell API path
     global myCachedStartupPath := A_Startup . "\mouse_ctrl.lnk"
     
@@ -1047,8 +1043,8 @@ myBindLateHotkeys() {
     ; --- KILL-TIP ---
     HotIf((*) => TipIstnieje() && !LegendaIstnieje() && !GetKeyState("XButton2", "P"))
     Hotkey("~LButton", myKillTipLButton, "On")
-    Hotkey("~MButton", (*) => (Sleep(100), UsunTip()), "On")
-    Hotkey("~RButton", (*) => (Sleep(100), UsunTip()), "On")
+    Hotkey("~MButton", (*) => (UsunTip()), "On")
+    Hotkey("~RButton", (*) => (UsunTip()), "On")
     Hotkey("~Esc", (*) => UsunTip(), "On")
 
     ; --- USTAWIENIA ---
@@ -1098,7 +1094,7 @@ myLegendaLButton(*) {
         LegendaGui.Hide()
     }
 }
-arrowFocusNav(button:="XButton1") => (SilnikGUI.CustomTooltip("SCROLL  🡱 🡳   ➠  ARROWS  🡰 🡲", {ON: (!EkranWygaszony && PokazPodpowiedzi)}), UstawFocusPodMysz(), MouseCtrlLib.AktywujTrybKola((*) => SendEvent("{Left}"), (*) => SendEvent("{Right}"), 0, 0, () => SilnikGUI.CustomTooltip(""), button), SilnikGUI.CustomTooltip(""))
+arrowFocusNav(button:="XButton1") => (SilnikGUI.CustomTooltip("SCROLL  🡱 🡳   ➠  ARROWS  🡰 🡲", {ON: (!EkranWygaszony && PokazPodpowiedzi), DelayON: 100}), UstawFocusPodMysz(), MouseCtrlLib.AktywujTrybKola((*) => SendEvent("{Left}"), (*) => SendEvent("{Right}"), 0, 0, () => SilnikGUI.CustomTooltip(""), button), SilnikGUI.CustomTooltip(""))
 
 myGenesisXButton1(*) {
     Multiklik("XButton1", 
@@ -1154,7 +1150,6 @@ myToggleProfile(*) {
 }
 
 myKillTipLButton(*) {
-    Sleep(100)
     UsunTip()
     LButtonStandardTip(HoldThreshold*1000-100)
 }
@@ -1206,7 +1201,7 @@ _AkcjaRButton_Hold() {
 
 AkcjaRButton() {
     Multiklik("RButton", 
-        (*) => (SendInput("{RButton Down}"), Sleep(1), SendInput("{RButton Up}")),
+        (*) => (SendInput("{RButton Down}"), SendInput("{RButton Up}")),
         _AkcjaRButton_Hold,
         (*) =>(UstawFocusPodMysz(), SendEvent("{F11}")), 
         (*) => ((CurrentProfile = 2 or (CurrentProfile = 0 and !GenesisActive)) ? arrowFocusNav("RButton") : ""), HoldThreshold, 5

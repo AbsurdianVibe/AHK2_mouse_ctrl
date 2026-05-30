@@ -18,6 +18,19 @@ global myWmiNamespace   := A_Args[6]
 global WM_COPYDATA      := 0x004A
 global QueueTime        := -1
 
+myWarmupFonts()
+
+/** Forces OS to load fonts and GDI glyphs into cache */
+myWarmupFonts() {
+    myGui := Gui("-Caption +ToolWindow")
+    myDict := "💻✂🔍📄🡰🡲🡱🡳◑🔊🔉ψᛒ⊙🎧📞—✓▲▼◄►🞀❘❙❚🞂✲➠🡷🡵✍📸⚠️"
+    for myOpt in ["s9 norm", "s10 norm", "s13 w100", "s15 bold", "s20 norm"] {
+        myGui.SetFont(myOpt, "Segoe UI")
+        myGui.Add("Text",, myDict)
+    }
+    myGui.Destroy()
+}
+
 OnExit(myGracefulShutdown)
 
 /** Gracefully cancels WMI subscriptions before exit 
@@ -53,8 +66,21 @@ global myWmiBusy := false
 global myAppliedBrightness := -1
 OnMessage(myIpcMsgId, myHandleRequest)
 
-global myMouseBusy := false
-global myPendingMouseCheck := 0
+; #region --- RAW INPUT (Event-Driven Mouse Monitor) ---
+myRegisterRawInput()
+
+/** Subscribes to WM_INPUT_DEVICE_CHANGE for HID Mouse */
+myRegisterRawInput() {
+    myRid := Buffer(8 + A_PtrSize, 0)
+    NumPut("UShort", 1, myRid, 0)
+    NumPut("UShort", 2, myRid, 2)
+    NumPut("UInt", 0x00002000, myRid, 4) ; RIDEV_DEVNOTIFY
+    NumPut("Ptr", A_ScriptHwnd, myRid, 8)
+    DllCall("User32\RegisterRawInputDevices", "Ptr", myRid, "UInt", 1, "UInt", myRid.Size)
+}
+OnMessage(0x00FE, myOnInputDeviceChange)
+; #endregion
+
 global myAudioBusy := false
 global myPendingAudioCheck := 0
 OnMessage(0x219, myOnDeviceChange)
@@ -94,27 +120,51 @@ myProcessBrightnessQueue() {
         myWmiBusy := false
 }
 
-/** WMI query for Genesis Mouse */
+/** Checks Genesis mouse state via Raw Input API */
 myCheckGenesisState() {
     global myTargetMouseID
-    try {
-        return ComObjGet("winmgmts:\\.\root\cimv2").ExecQuery("SELECT * FROM Win32_PnPEntity WHERE DeviceID LIKE '%" . StrReplace(myTargetMouseID, "\", "\\") . "%' AND Status='OK'").Count > 0
-    } catch as err {
-        OutputDebug("WMI Mouse Query Error: " . err.Message)
-        return -1
+    
+    myNumDevices := 0
+    DllCall("User32\GetRawInputDeviceList", "Ptr", 0, "UInt*", &myNumDevices, "UInt", A_PtrSize * 2)
+    if (!myNumDevices)
+        return 0
+        
+    myRawInputDeviceList := Buffer(myNumDevices * (A_PtrSize * 2), 0)
+    DllCall("User32\GetRawInputDeviceList", "Ptr", myRawInputDeviceList, "UInt*", &myNumDevices, "UInt", A_PtrSize * 2)
+    
+    Loop myNumDevices {
+        myHandle := NumGet(myRawInputDeviceList, (A_Index - 1) * (A_PtrSize * 2), "Ptr")
+            
+        myNameLength := 0
+        DllCall("User32\GetRawInputDeviceInfo", "Ptr", myHandle, "UInt", 0x20000007, "Ptr", 0, "UInt*", &myNameLength)
+        
+        if (myNameLength > 0) {
+            myNameBuffer := Buffer(myNameLength * 2, 0)
+            DllCall("User32\GetRawInputDeviceInfo", "Ptr", myHandle, "UInt", 0x20000007, "Ptr", myNameBuffer, "UInt*", &myNameLength)
+            
+            if InStr(StrReplace(StrGet(myNameBuffer), "#", "\"), myTargetMouseID)
+                return 1
+        }
     }
+    return 0
 }
 
-/** Broadcast receiver for USB/PnP changes with L7 routing */
+/** Handles WM_INPUT_DEVICE_CHANGE */
+myOnInputDeviceChange(wParam, lParam, msg, hwnd) {
+    if (wParam == 1 || wParam == 2)
+        SetTimer(myProcessMouseState, -50)
+}
+
+/** Dispatches debounced mouse state */
+myProcessMouseState() {
+    myDispatchIpcEvent(myCheckGenesisState(), -1, "-1")
+}
+
+/** Broadcast receiver for USB/PnP changes (isolated for Audio only) */
 myOnDeviceChange(wParam, lParam, msg, hwnd) {
-    global myPendingMouseCheck, myMouseBusy, myPendingAudioCheck, myAudioBusy, QueueTime
+    global myPendingAudioCheck, myAudioBusy, QueueTime
 
     if (!lParam) {
-        myPendingMouseCheck++
-        if (!myMouseBusy) {
-            myMouseBusy := true
-            SetTimer(myProcessMouseQueue, QueueTime)
-        }
         myPendingAudioCheck++
         if (!myAudioBusy) {
             myAudioBusy := true
@@ -123,40 +173,14 @@ myOnDeviceChange(wParam, lParam, msg, hwnd) {
         return
     }
 
-    myDeviceType := NumGet(lParam, 4, "UInt")
-    if (myDeviceType == 5) {
-        myDevString := StrGet(lParam + 28, "UTF-16")
-        
-        if (myDevString ~= "i)(HID|USB)") {
-            myPendingMouseCheck++
-            if (!myMouseBusy) {
-                myMouseBusy := true
-                SetTimer(myProcessMouseQueue, QueueTime)
-            }
-        }
-        
-        if (myDevString ~= "i)(AUDIO|MMDEVAPI|RENDER)") {
+    if (NumGet(lParam, 4, "UInt") == 5) {
+        if (StrGet(lParam + 28, "UTF-16") ~= "i)(AUDIO|MMDEVAPI|RENDER)") {
             myPendingAudioCheck++
             if (!myAudioBusy) {
                 myAudioBusy := true
                 SetTimer(myProcessAudioQueue, QueueTime)
             }
         }
-    }
-}
-
-/** Processes mouse state sync and recurses if event storm occurs */
-myProcessMouseQueue() {
-    global myPendingMouseCheck, myMouseBusy
-    myCurrentCheck := myPendingMouseCheck
-    
-    myGenesisActive := myCheckGenesisState()
-    
-    if (myPendingMouseCheck != myCurrentCheck)
-        SetTimer(myProcessMouseQueue, QueueTime)
-    else {
-        myMouseBusy := false
-        myDispatchIpcEvent(myGenesisActive, -1, "-1")
     }
 }
 
@@ -191,7 +215,7 @@ myHandleRequest(wParam, lParam, msg, hwnd) {
         return 1
     }
 
-    /** 1. Fetch mouse state via WMI */
+    /** 1. Fetch mouse state via Raw Input API */
     myGenesisActive := -1
     if (wParam & 1)
         myGenesisActive := myCheckGenesisState()
