@@ -785,7 +785,7 @@ TrescLegendy(profil, genesisState) {
     ; Definicje tekstów
     txtKlawiatura := "Ctrl+Alt+R = Unlock keys`nCtrl+Alt+P = Screenshot`nCtrl+F1/F2 = Brightness`nCtrl+F12 = Change profile`nShift + `` = ~"
     txtGenesis    := "Right(Hold) = Shift`nRight + Wheel = Volume`nRight + Middle = Mute`nRight + X1 = Alt+Tab`nRight + X2 = Shift+Alt+Tab`nRight(2x) = F11`nX1 + Wheel = Brightness`nX1 + Middle = Screen off`nX1(2x) = Esc`nX1(2xHold) + Wheel = Arrows 🡰 🡲`nX2(Hold) = Ctrl`nX2(Hold) + Wheel = Zoom 🔍`nX2 + Left(2x) = Ctrl+V`nX2 + Left(2xHold) = LClick+Ctrl+V`nX2 + Right = Ctrl+C`nX2 + Right(Hold) = Ctrl+X`nX2 + Right(2x) = LClick+Ctrl+C`nX2 + Right(2xHold) = LClick+Ctrl+X`nX2 + X1 + Wheel = Ctrl+Z/Y`nX2(2x) = Ctrl+Shift+S`nX2(2xHold) + Wheel = Horiz. Scroll"
-    txtStandard   := "Right(Hold) = Shift`nRight + Wheel = Volume`nRight + Middle = Mute`nRight + Left = Alt+Tab`nRight(2x) = F11`nRight(2xHold) + Wheel = Arrows 🡰 🡲`nLeft + Wheel = Brightness`nLeft + Middle = Screen off`nLeft + Right = Alt+Tab"
+    txtStandard   := "Right(Hold) = Shift`nRight + Wheel = Volume`nRight + Middle = Mute`nRight + Left = Alt+Tab`nRight(2x) = F11`nRight(2xHold) + Wheel = Arrows / H-Scroll (LClick)`nLeft + Wheel = Brightness`nLeft + Middle = Screen off`nLeft + Right = Alt+Tab"
 
     ; Wartości domyślne
     dane.Header     := (profil == 0) ? "AUTO" : ((profil == 4) ? "" : "MANUAL")
@@ -1009,23 +1009,24 @@ myBindLateHotkeys() {
     HotIf((*) => (CurrentProfile == 1 || (CurrentProfile == 0 && GenesisActive)))
     Hotkey("*RButton", (*) => AkcjaRButton(), "On")
     Hotkey("XButton1", myGenesisXButton1, "On")
-    Hotkey("~RButton & XButton1", "AltTab", "On")
-    Hotkey("~RButton & XButton2", "ShiftAltTab", "On")
     Hotkey("XButton2", myGenesisXButton2, "On")
     Hotkey("~XButton2 & LButton", myGenesisX2LButton, "On")
     Hotkey("~XButton2 & RButton", myGenesisX2RButton, "On")
     Hotkey("XButton2 & XButton1", myGenesisX2X1, "On")
+    Hotkey("~RButton & XButton1", (*) => (myAltTabState.Active := true, Send("{Blind}{Alt down}{Tab}")), "On")
+    Hotkey("~RButton & XButton2", (*) => (myAltTabState.Active := true, Send("{Blind}{Alt down}{Shift down}{Tab}{Shift up}")), "On")
+    Hotkey("*RButton Up", (*) => (myAltTabState.Active ? (Send("{Alt up}"), myAltTabState.Active := false) : ""), "On")
 
     ; --- MYSZ STANDARDOWA ---
     HotIf((*) => (CurrentProfile == 2 || (CurrentProfile == 0 && !GenesisActive)))
     Hotkey("RButton", (*) => AkcjaRButton(), "On")
     
-    HotIf((*) => (CurrentProfile == 2 || (CurrentProfile == 0 && !GenesisActive)) && !CzyNadZablokowanymElementem())
+    HotIf((*) => (CurrentProfile == 2 || (CurrentProfile == 0 && !GenesisActive)) && !CzyNadZablokowanymElementem() && !myStandardProxyActive)
     Hotkey("~LButton & WheelUp", (*) => (UsunTip(), ZmianaJasnosci(BrightnessStepMouse)), "On")
     Hotkey("~LButton & WheelDown", (*) => (UsunTip(), ZmianaJasnosci(-BrightnessStepMouse)), "On")
     Hotkey("~LButton & MButton", (*) => (UsunTip(), WygasEkran("LButton")), "On")
-    Hotkey("~LButton & RButton", "AltTab", "On")
-    Hotkey("~LButton Up", (*) => Send("{Alt Up}"), "On")
+    Hotkey("~LButton & RButton", (*) => (myAltTabState.Active := true, Send("{Blind}{Alt down}{Tab}")), "On")
+    Hotkey("~LButton Up", (*) => (myAltTabState.Active ? (Send("{Alt up}"), myAltTabState.Active := false) : ""), "On")
     Hotkey("~LButton", (*) => LButtonStandardTip(), "On")
 
     ; --- KLAWIATURA ---
@@ -1041,7 +1042,7 @@ myBindLateHotkeys() {
     Hotkey("^F12", myToggleProfile, "On")
 
     ; --- KILL-TIP ---
-    HotIf((*) => TipIstnieje() && !LegendaIstnieje() && !GetKeyState("XButton2", "P"))
+    HotIf((*) => TipIstnieje() && !LegendaIstnieje() && !GetKeyState("XButton2", "P") && !myStandardProxyActive)
     Hotkey("~LButton", myKillTipLButton, "On")
     Hotkey("~MButton", (*) => (UsunTip()), "On")
     Hotkey("~RButton", (*) => (UsunTip()), "On")
@@ -1095,6 +1096,41 @@ myLegendaLButton(*) {
     }
 }
 arrowFocusNav(button:="XButton1") => (SilnikGUI.CustomTooltip("SCROLL  🡱 🡳   ➠  ARROWS  🡰 🡲", {ON: (!EkranWygaszony && PokazPodpowiedzi), DelayON: 100}), UstawFocusPodMysz(), MouseCtrlLib.AktywujTrybKola((*) => SendEvent("{Left}"), (*) => SendEvent("{Right}"), 0, 0, () => SilnikGUI.CustomTooltip(""), button), SilnikGUI.CustomTooltip(""))
+
+global myStandardProxyActive := false
+global myAltTabState := { Active: false }
+
+/** Proxies standard mouse scroll mode to toggle between arrows and horizontal scroll 
+ * @param button */
+myStandardScrollMode(button := "RButton", togle := "*LButton") {
+    global myStandardProxyActive
+    myState := { HScroll: false }
+    
+    myUpdateTooltip() => SilnikGUI.CustomTooltip(myState.HScroll ? "SCROLL  🡱 🡳   ➠   H-SCROLL  🞀 ❘❙❚❙❘ 🞂`n.[2].`nLCLICK  ➠  TOGGLE" : "SCROLL  🡱 🡳   ➠   ARROWS  🡰 🡲`n.[2].`nLCLICK  ➠  TOGGLE", {ON: (!EkranWygaszony && PokazPodpowiedzi), DelayON: 100})
+    
+    myToggleState(*) {
+        myState.HScroll := !myState.HScroll
+        myUpdateTooltip()
+    }
+    
+    myOnStart() {
+        myStandardProxyActive := true
+        UstawFocusPodMysz()
+        myUpdateTooltip()
+        try Hotkey(togle, myToggleState, "On")
+    }
+    
+    myOnStop() {
+        try Hotkey(togle, "Off")
+        myStandardProxyActive := false
+        SilnikGUI.CustomTooltip("")
+    }
+    
+    myWheelUp(*) => myState.HScroll ? (SendLevel(1), SendEvent("{WheelLeft}")) : SendEvent("{Left}")
+    myWheelDown(*) => myState.HScroll ? (SendLevel(1), SendEvent("{WheelRight}")) : SendEvent("{Right}")
+    
+    MouseCtrlLib.AktywujTrybKola(myWheelUp, myWheelDown, myOnStart, myOnStop, () => SilnikGUI.CustomTooltip(""), button)
+}
 
 myGenesisXButton1(*) {
     Multiklik("XButton1", 
@@ -1173,7 +1209,7 @@ CzyNadZablokowanymElementem() {
 
 ; Funkcja pomocnicza dla AkcjaRButton, wywoływana przy przytrzymaniu
 _AkcjaRButton_Hold() {
-    PokazDymek := () => !PokazPodpowiedzi ? (SilnikGUI.CustomTooltip(PobierzStatusAudio(), {ON: !EkranWygaszony, czas: 1500})) : SilnikGUI.CustomTooltip("SHIFT  🡱`n..`n" . ((CurrentProfile = 1 or (CurrentProfile = 0 and GenesisActive))? "X1  ➠  Alt+Tab`nX2  ➠  Shift+Alt+Tab`n..`n" : "LEFT  ➠  Alt+Tab`n..`n(2xHOLD)+SCROLL  🡱 🡳  ➠  ARROWS  🡰 🡲`n..`n") . "2X  ➠  f11`n..`nSCROLL  🡱 🡳  ➠  VOLUME(+/-)`nMIDDLE  ➠  MUTE  🔉X`n.[2].`n" . PobierzStatusAudio(), {ON: !EkranWygaszony}) 
+    PokazDymek := () => !PokazPodpowiedzi ? (SilnikGUI.CustomTooltip(PobierzStatusAudio(), {ON: !EkranWygaszony, czas: 1500})) : SilnikGUI.CustomTooltip("SHIFT  🡱`n..`n" . ((CurrentProfile = 1 or (CurrentProfile = 0 and GenesisActive))? "X1  ➠  Alt+Tab`nX2  ➠  Shift+Alt+Tab`n..`n" : "LEFT  ➠  Alt+Tab`n..`n(2xHOLD)+SCROLL  🡱 🡳  ➠  ARROWS / H-SCROLL`n..`n") . "2X  ➠  f11`n..`nSCROLL  🡱 🡳  ➠  VOLUME(+/-)`nMIDDLE  ➠  MUTE  🔉X`n.[2].`n" . PobierzStatusAudio(), {ON: !EkranWygaszony}) 
     CzyscDymek := (*) => SilnikGUI.CustomTooltip()
 
     ; Timer dymka
@@ -1204,7 +1240,7 @@ AkcjaRButton() {
         (*) => (SendInput("{RButton Down}"), SendInput("{RButton Up}")),
         _AkcjaRButton_Hold,
         (*) =>(UstawFocusPodMysz(), SendEvent("{F11}")), 
-        (*) => ((CurrentProfile = 2 or (CurrentProfile = 0 and !GenesisActive)) ? arrowFocusNav("RButton") : ""), HoldThreshold, 5
+        (*) => ((CurrentProfile = 2 or (CurrentProfile = 0 and !GenesisActive)) ? myStandardScrollMode("RButton") : ""), HoldThreshold, 5
     )
 }
 
