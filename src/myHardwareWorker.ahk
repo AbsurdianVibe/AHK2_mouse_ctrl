@@ -1,4 +1,11 @@
 ﻿#Requires AutoHotkey v2.0
+;@Ahk2Exe-SetMainIcon mouse_ctrl.ico
+;@Ahk2Exe-SetCompanyName AbsurdianVibe
+;@Ahk2Exe-SetDescription Mouse Control Worker Daemon
+;@Ahk2Exe-SetCopyright Copyright (c) 2026 AbsurdianVibe
+;@Ahk2Exe-SetVersion 1.0.0
+;@Ahk2Exe-SetProductName Mouse Control Worker Daemon
+;@Ahk2Exe-SetLanguage 0x0409
 #NoTrayIcon
 #SingleInstance Ignore
 ProcessSetPriority "High"
@@ -38,13 +45,23 @@ OnExit(myGracefulShutdown)
  * @param ExitCode */
 myGracefulShutdown(ExitReason, ExitCode) {
     global myWmiSink
-    try myWmiSink.Cancel()
+    if (myWmiSink)
+        try myWmiSink.Cancel()
 }
 
 ; #region --- WMI EVENT SINK (Async Brightness Monitor) ---
-global myWmiSink := ComObject("WbemScripting.SWbemSink")
-ComObjConnect(myWmiSink, "myWmiSink_")
-try ComObjGet(myWmiNamespace).ExecNotificationQueryAsync(myWmiSink, "SELECT * FROM __InstanceModificationEvent WITHIN 1 WHERE TargetInstance ISA 'WmiMonitorBrightness'")
+global myWmiSink := ""
+SetTimer(myInitWmiAsync, -500)
+
+/** Lazily initializes WMI to prevent Thread Blocking on system startup */
+myInitWmiAsync() {
+    global myWmiSink, myWmiNamespace
+    try {
+        myWmiSink := ComObject("WbemScripting.SWbemSink")
+        ComObjConnect(myWmiSink, "myWmiSink_")
+        ComObjGet(myWmiNamespace).ExecNotificationQueryAsync(myWmiSink, "SELECT * FROM __InstanceModificationEvent WITHIN 1 WHERE TargetInstance ISA 'WmiMonitorBrightness'")
+    }
+}
 ; #endregion
 
 /** Handles async WMI events for brightness changes 
@@ -86,13 +103,13 @@ global myPendingAudioCheck := 0
 OnMessage(0x219, myOnDeviceChange)
 
 /** Dispatches IPC payload to main script
- * @param genesisState -1: skip, 0/1: state
+ * @param CustomState -1: skip, 0/1: state
  * @param brightnessVal -1: skip, 1-100: val
  * @param audioState "-1": skip, string: val */
-myDispatchIpcEvent(genesisState, brightnessVal, audioState := "-1") {
+myDispatchIpcEvent(CustomState, brightnessVal, audioState := "-1") {
     global myMainHwnd, myIpcSignature, myIpcSeparator, WM_COPYDATA
     
-    myPayload := genesisState . myIpcSeparator . brightnessVal . myIpcSeparator . audioState
+    myPayload := CustomState . myIpcSeparator . brightnessVal . myIpcSeparator . audioState
     myStrBuf := Buffer(StrPut(myPayload, "UTF-16") * 2, 0)
     StrPut(myPayload, myStrBuf, "UTF-16")
 
@@ -120,8 +137,8 @@ myProcessBrightnessQueue() {
         myWmiBusy := false
 }
 
-/** Checks Genesis mouse state via Raw Input API */
-myCheckGenesisState() {
+/** Checks Custom mouse state via Raw Input API */
+myCheckCustomState() {
     global myTargetMouseID
     
     myNumDevices := 0
@@ -157,7 +174,7 @@ myOnInputDeviceChange(wParam, lParam, msg, hwnd) {
 
 /** Dispatches debounced mouse state */
 myProcessMouseState() {
-    myDispatchIpcEvent(myCheckGenesisState(), -1, "-1")
+    myDispatchIpcEvent(myCheckCustomState(), -1, "-1")
 }
 
 /** Broadcast receiver for USB/PnP changes (isolated for Audio only) */
@@ -216,9 +233,9 @@ myHandleRequest(wParam, lParam, msg, hwnd) {
     }
 
     /** 1. Fetch mouse state via Raw Input API */
-    myGenesisActive := -1
+    myCustomActive := -1
     if (wParam & 1)
-        myGenesisActive := myCheckGenesisState()
+        myCustomActive := myCheckCustomState()
 
     /** 2. Fetch screen brightness via WMI */
     myBrightness := -1
@@ -233,7 +250,7 @@ myHandleRequest(wParam, lParam, msg, hwnd) {
         myAudio := AudioMonitor.Update()
 
     /** 4. Dispatch data */
-    myDispatchIpcEvent(myGenesisActive, myBrightness, myAudio)
+    myDispatchIpcEvent(myCustomActive, myBrightness, myAudio)
     return 1
 }
 
