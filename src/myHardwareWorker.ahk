@@ -3,7 +3,7 @@
 ;@Ahk2Exe-SetCompanyName AbsurdianVibe
 ;@Ahk2Exe-SetDescription Mouse Control Worker Daemon
 ;@Ahk2Exe-SetCopyright Copyright (c) 2026 AbsurdianVibe
-;@Ahk2Exe-SetVersion 1.0.0
+;@Ahk2Exe-SetVersion 1.0.1
 ;@Ahk2Exe-SetProductName Mouse Control Worker Daemon
 ;@Ahk2Exe-SetLanguage 0x0409
 #NoTrayIcon
@@ -12,6 +12,11 @@ ProcessSetPriority "High"
 Persistent(true)
 
 DetectHiddenWindows true
+
+if (A_Args.Length == 1 && A_Args[1] == "WARMUP") {
+    myWarmupFonts()
+    ExitApp()
+}
 
 if (A_Args.Length < 6)
     ExitApp()
@@ -24,8 +29,6 @@ global myIpcSeparator   := A_Args[5]
 global myWmiNamespace   := A_Args[6]
 global WM_COPYDATA      := 0x004A
 global QueueTime        := -1
-
-myWarmupFonts()
 
 /** Forces OS to load fonts and GDI glyphs into cache */
 myWarmupFonts() {
@@ -51,15 +54,19 @@ myGracefulShutdown(ExitReason, ExitCode) {
 
 ; #region --- WMI EVENT SINK (Async Brightness Monitor) ---
 global myWmiSink := ""
-SetTimer(myInitWmiAsync, -500)
+global myWmiInitialized := false
 
 /** Lazily initializes WMI to prevent Thread Blocking on system startup */
 myInitWmiAsync() {
-    global myWmiSink, myWmiNamespace
+    global myWmiSink, myWmiNamespace, myWmiInitialized
+    if (myWmiInitialized)
+        return
+        
     try {
         myWmiSink := ComObject("WbemScripting.SWbemSink")
         ComObjConnect(myWmiSink, "myWmiSink_")
         ComObjGet(myWmiNamespace).ExecNotificationQueryAsync(myWmiSink, "SELECT * FROM __InstanceModificationEvent WITHIN 1 WHERE TargetInstance ISA 'WmiMonitorBrightness'")
+        myWmiInitialized := true
     }
 }
 ; #endregion
@@ -251,6 +258,7 @@ myHandleRequest(wParam, lParam, msg, hwnd) {
 
     /** 4. Dispatch data */
     myDispatchIpcEvent(myCustomActive, myBrightness, myAudio)
+    SetTimer(myInitWmiAsync, -200)
     return 1
 }
 

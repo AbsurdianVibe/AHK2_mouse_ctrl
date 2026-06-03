@@ -3,7 +3,7 @@
 ;@Ahk2Exe-SetCompanyName AbsurdianVibe
 ;@Ahk2Exe-SetDescription Mouse Control
 ;@Ahk2Exe-SetCopyright Copyright (c) 2026 AbsurdianVibe
-;@Ahk2Exe-SetVersion 1.0.0
+;@Ahk2Exe-SetVersion 1.0.1
 ;@Ahk2Exe-SetProductName Mouse Control
 ;@Ahk2Exe-SetLanguage 0x0409
 #SingleInstance Force
@@ -53,7 +53,6 @@ if !FileExist(IniPath) { ; Init default INI
     IniWrite(1, IniPath, "Settings", "AdminStartLvl")
     IniWrite(1, IniPath, "Settings", "PokazPodpowiedzi")
     IniWrite(0.15, IniPath, "Settings", "HoldThreshold") ; Domyślny DoubleClick (s)
-    IniWrite(10, IniPath, "Settings", "StartupDelay")
     IniWrite(0, IniPath, "Settings", "LastCustomActive")
     IniWrite(10, IniPath, "Settings", "LastBrightness")
     IniWrite("HID\VID_4E53&PID_5407", IniPath, "Settings", "TargetMouseID")
@@ -80,7 +79,6 @@ class DaneGlobalne {
         global PokazPodpowiedzi    := Number(myRead("PokazPodpowiedzi", 1))
         global myAdminStartLvl     := Number(myRead("AdminStartLvl", 1))
         global HoldThreshold       := Float(myRead("HoldThreshold", 0.15))
-        global StartupDelay        := Number(myRead("StartupDelay", 10))
         global ListaProfili        := ["AUTO (Detect)", "Custom Mouse + Keyboard", "Standard Mouse + Keyboard", "Keyboard Only", "OFF Mode"]
 
         if FileExist(A_ScriptDir . "\mouse_ctrl.ico")
@@ -185,8 +183,9 @@ AsynchronicznaInicjalizacja() {
     global TargetMouseID, myWorkerHwnd, myIpcMsgId, myIpcSignature, myIpcSeparator, myWmiNamespace
     try {
         myTargetExe := A_IsCompiled ? '"' myDaemonPath '"' : '"' A_AhkPath '" "' myDaemonPath '"'
+        Run(myTargetExe ' "WARMUP"', , "Hide")
         Run(myTargetExe ' "' A_ScriptHwnd '" "' TargetMouseID '" "' myIpcMsgId '" "' myIpcSignature '" "' myIpcSeparator '" "' myWmiNamespace '"', , "Hide", &WorkerPID)
-        myWorkerHwnd := WinWait((A_IsCompiled ? "ahk_pid " : "ahk_class AutoHotkey ahk_pid ") WorkerPID,, 3)
+        myWorkerHwnd := WinWait((A_IsCompiled ? "ahk_pid " : "ahk_class AutoHotkey ahk_pid ") WorkerPID,, 30)
     }
 
     ; Cache Shell API path
@@ -384,7 +383,7 @@ MonitorujMysz() {
 ;   #region --- OKNO USTAWIEŃ ---
 PokazUstawienia(*) {
     global DefaultProfile, BrightnessStepMouse, BrightnessStepKbd, VolStepMouse, IniPath, GlUs, Uprawnienia
-    global StartProf, Edit_BM, Edit_BK, Edit_VM, Edit_VD, Edit_Delay
+    global StartProf, Edit_BM, Edit_BK, Edit_VM, Edit_VD
     global StatusTextControl, Check_Autostart, Check_Podpowiedzi, UprawnieniaCheckbox
     SzerOknUst := 220 
     SettingsTipDelON := 300
@@ -439,14 +438,12 @@ PokazUstawienia(*) {
     myDDLCallback := (ctrl, *) => (ctrl.SelectedIndex == 1) ? SilnikGUI.CustomTooltip("⚠️ WARNING: Real-Time mode (0) can overload the CPU!`nIt may completely block mouse and keyboard input.", {delayon:SettingsTipDelON, Transparent: 0.1, TransClick: 1, kolorTla:"c420000",czyPogrubione: 1,kolorramki:"cff7f7f", kolorTekstu:"cff7f7f", trybPozycji: ctrl, Align: "+Down+10"}) : SilnikGUI.CustomTooltip()
     myStartLvlDDL := GlUs.DodajDDList(myPriorityOptions, myDDLCallback, myAdminStartLvl + 1, szerDD, "x" . ((SzerOknUst+pad)-szerDD)/2 . " y+5")
     myStartLvlDDL.HoverAction := (*) => myDDLCallback(myStartLvlDDL)
-    Edit_Delay := GlUs.DodajWierszKonfiguracji("Startup delay (s):", StartupDelay, {trybWalidacji: 0, minVal: 0, maxVal: 120, skok: 1, pozycja: "x20 y+10", SzerText: 140})
-    Edit_Delay.HoverAction := (*) => SilnikGUI.CustomTooltip("Delay in seconds before background services (WMI) are launched.`nValues below 10s may cause system boot issues.", {trybPozycji: Edit_Delay, Transparent: 0.1, TransClick: 1,  Align: "+Down+10", DelayON: SettingsTipDelON})
-    GlUs.Ramka(myLvlTitle, Edit_Delay, 8)
+    GlUs.Ramka(myLvlTitle, myStartLvlDDL, 8)
 
     Check_Podpowiedzi := GlUs.DodajCheckbox("Show tooltips", {czyZaznaczony: PokazPodpowiedzi, pozycja: "xm y+15"})
 
-    GlUs.DodajPrzycisk("Apply", (*) => ZapiszIUstaw(GlUs.GuiObj, StartProf, Edit_BM, Edit_BK, Edit_VM, Edit_VD, Edit_Delay, Check_Podpowiedzi, myStartLvlDDL, false), "y+20 w80 h30")
-    GlUs.DodajPrzycisk("Save", (*) => ZapiszIUstaw(GlUs.GuiObj, StartProf, Edit_BM, Edit_BK, Edit_VM, Edit_VD, Edit_Delay, Check_Podpowiedzi, myStartLvlDDL, true), "x" . (SzerOknUst-80) . " yp w80 h30")
+    GlUs.DodajPrzycisk("Apply", (*) => ZapiszIUstaw(GlUs.GuiObj, StartProf, Edit_BM, Edit_BK, Edit_VM, Edit_VD, Check_Podpowiedzi, myStartLvlDDL, false), "y+20 w80 h30")
+    GlUs.DodajPrzycisk("Save", (*) => ZapiszIUstaw(GlUs.GuiObj, StartProf, Edit_BM, Edit_BK, Edit_VM, Edit_VD, Check_Podpowiedzi, myStartLvlDDL, true), "x" . (SzerOknUst-80) . " yp w80 h30")
     GlUs.Pokaz()
     WinActivate("ahk_id " GlUs.GuiObj.Hwnd)
     Edit_BM.Focus()
@@ -486,8 +483,8 @@ ZastosujZmianyAutostartu() {
     NowyStatus := TaskExists ? "Status: Task Scheduler (Admin)" : (ShortcutExists ? "Status: Startup Folder (Regular)" : "Status: Disabled")
     StatusTextControl.Value := NowyStatus
 }
-ZapiszIUstaw(G, D, BM, BK, VM, VD, DD, CP, SL, ZamknijOkno := true) {
-    global DefaultProfile, BrightnessStepMouse, BrightnessStepKbd, VolStepMouse, HoldThreshold, StartupDelay, PokazPodpowiedzi, IniPath, Uprawnienia, UprawnieniaCheckbox, Check_Autostart, myAdminStartLvl
+ZapiszIUstaw(G, D, BM, BK, VM, VD, CP, SL, ZamknijOkno := true) {
+    global DefaultProfile, BrightnessStepMouse, BrightnessStepKbd, VolStepMouse, HoldThreshold, PokazPodpowiedzi, IniPath, Uprawnienia, UprawnieniaCheckbox, Check_Autostart, myAdminStartLvl
     
     ; 1. Pobranie wartości (SilnikGUI gwarantuje typ i zakres)
     DefaultProfile      := D.SelectedIndex - 1 
@@ -495,7 +492,6 @@ ZapiszIUstaw(G, D, BM, BK, VM, VD, DD, CP, SL, ZamknijOkno := true) {
     BrightnessStepKbd   := Number(BK.Value)
     VolStepMouse        := Number(VM.Value)
     HoldThreshold       := Number(StrReplace(VD.Value, ",", ".")) ; Safety check dla float
-    StartupDelay        := Number(DD.Value)
     PokazPodpowiedzi    := CP.Value
     Uprawnienia         := UprawnieniaCheckbox.Value
     myAdminStartLvl     := SL.SelectedIndex - 1
@@ -509,7 +505,6 @@ ZapiszIUstaw(G, D, BM, BK, VM, VD, DD, CP, SL, ZamknijOkno := true) {
     IniWrite(BrightnessStepKbd, IniPath, "Settings", "BrightnessStepKbd") 
     IniWrite(VolStepMouse, IniPath, "Settings", "VolStepMouse")
     IniWrite(HoldThreshold, IniPath, "Settings", "HoldThreshold") 
-    IniWrite(StartupDelay, IniPath, "Settings", "StartupDelay")
    
     ZastosujZmianyAutostartu()
 
@@ -519,7 +514,7 @@ ZapiszIUstaw(G, D, BM, BK, VM, VD, DD, CP, SL, ZamknijOkno := true) {
 }
 
 ManageAutostart(enable) { 
-    global myAdminStartLvl, StartupDelay
+    global myAdminStartLvl
     TaskName := "MouseCtrlAutostart"
     ShortcutPath := myCachedStartupPath
     
@@ -550,7 +545,6 @@ ManageAutostart(enable) {
                 Triggers := TaskDef.Triggers
                 Trigger := Triggers.Create(9) ; 9 = TASK_TRIGGER_LOGON
                 Trigger.Enabled := true
-            Trigger.Delay := "PT" . StartupDelay . "S"
 
                 ; Akcja: Skrypt
                 Actions := TaskDef.Actions
