@@ -1,268 +1,208 @@
-﻿#Requires AutoHotkey v2.0
-;@Ahk2Exe-SetMainIcon mouse_ctrl.ico
-;@Ahk2Exe-SetCompanyName AbsurdianVibe
-;@Ahk2Exe-SetDescription Mouse Control Worker Daemon
-;@Ahk2Exe-SetCopyright Copyright (c) 2026 AbsurdianVibe
-;@Ahk2Exe-SetVersion 1.0.1
-;@Ahk2Exe-SetProductName Mouse Control Worker Daemon
-;@Ahk2Exe-SetLanguage 0x0409
-#NoTrayIcon
-#SingleInstance Ignore
-ProcessSetPriority "High"
-Persistent(true)
-
-DetectHiddenWindows true
-
-if (A_Args.Length == 1 && A_Args[1] == "WARMUP") {
-    myWarmupFonts()
-    ExitApp()
-}
-
-if (A_Args.Length < 6)
-    ExitApp()
-
-global myMainHwnd       := A_Args[1]
-global myTargetMouseID  := A_Args[2]
-global myIpcMsgId       := Integer(A_Args[3])
-global myIpcSignature   := Integer(A_Args[4])
-global myIpcSeparator   := A_Args[5]
-global myWmiNamespace   := A_Args[6]
-global WM_COPYDATA      := 0x004A
-global QueueTime        := -1
-
-/** Forces OS to load fonts and GDI glyphs into cache */
-myWarmupFonts() {
-    myGui := Gui("-Caption +ToolWindow")
-    myDict := "💻✂🔍📄🡰🡲🡱🡳◑🔊🔉ψᛒ⊙🎧📞—✓▲▼◄►🞀❘❙❚🞂✲➠🡷🡵✍📸⚠️"
-    for myOpt in ["s9 norm", "s10 norm", "s13 w100", "s15 bold", "s20 norm"] {
-        myGui.SetFont(myOpt, "Segoe UI")
-        myGui.Add("Text",, myDict)
-    }
-    myGui.Destroy()
-}
-
-OnExit(myGracefulShutdown)
-
-/** Gracefully cancels WMI subscriptions before exit 
- * @param ExitReason 
- * @param ExitCode */
-myGracefulShutdown(ExitReason, ExitCode) {
-    global myWmiSink
-    if (myWmiSink)
-        try myWmiSink.Cancel()
-}
-
-; #region --- WMI EVENT SINK (Async Brightness Monitor) ---
-global myWmiSink := ""
-global myWmiInitialized := false
-
-/** Lazily initializes WMI to prevent Thread Blocking on system startup */
-myInitWmiAsync() {
-    global myWmiSink, myWmiNamespace, myWmiInitialized
-    if (myWmiInitialized)
-        return
+﻿class HardwareDaemon {
+    static Boot(args) {
+        DetectHiddenWindows(true)
+        WinSetTitle("MouseCtrl_Daemon_Window", "ahk_id " A_ScriptHwnd)
         
-    try {
-        myWmiSink := ComObject("WbemScripting.SWbemSink")
-        ComObjConnect(myWmiSink, "myWmiSink_")
-        ComObjGet(myWmiNamespace).ExecNotificationQueryAsync(myWmiSink, "SELECT * FROM __InstanceModificationEvent WITHIN 1 WHERE TargetInstance ISA 'WmiMonitorBrightness'")
-        myWmiInitialized := true
-    }
-}
-; #endregion
-
-/** Handles async WMI events for brightness changes 
- * @param objWbemObject 
- * @param args */
-myWmiSink_OnObjectReady(objWbemObject, args*) {
-    global myAppliedBrightness
-    try {
-        myNewBrightness := objWbemObject.TargetInstance.CurrentBrightness
-        if (myNewBrightness != myAppliedBrightness) {
-            myAppliedBrightness := myNewBrightness
-            myDispatchIpcEvent(-1, myNewBrightness, "-1")
-        }
-    }
-}
-
-global myPendingBrightness := 0
-global myWmiBusy := false
-global myAppliedBrightness := -1
-OnMessage(myIpcMsgId, myHandleRequest)
-
-; #region --- RAW INPUT (Event-Driven Mouse Monitor) ---
-myRegisterRawInput()
-
-/** Subscribes to WM_INPUT_DEVICE_CHANGE for HID Mouse */
-myRegisterRawInput() {
-    myRid := Buffer(8 + A_PtrSize, 0)
-    NumPut("UShort", 1, myRid, 0)
-    NumPut("UShort", 2, myRid, 2)
-    NumPut("UInt", 0x00002000, myRid, 4) ; RIDEV_DEVNOTIFY
-    NumPut("Ptr", A_ScriptHwnd, myRid, 8)
-    DllCall("User32\RegisterRawInputDevices", "Ptr", myRid, "UInt", 1, "UInt", myRid.Size)
-}
-OnMessage(0x00FE, myOnInputDeviceChange)
-; #endregion
-
-global myAudioBusy := false
-global myPendingAudioCheck := 0
-OnMessage(0x219, myOnDeviceChange)
-
-/** Dispatches IPC payload to main script
- * @param CustomState -1: skip, 0/1: state
- * @param brightnessVal -1: skip, 1-100: val
- * @param audioState "-1": skip, string: val */
-myDispatchIpcEvent(CustomState, brightnessVal, audioState := "-1") {
-    global myMainHwnd, myIpcSignature, myIpcSeparator, WM_COPYDATA
-    
-    myPayload := CustomState . myIpcSeparator . brightnessVal . myIpcSeparator . audioState
-    myStrBuf := Buffer(StrPut(myPayload, "UTF-16") * 2, 0)
-    StrPut(myPayload, myStrBuf, "UTF-16")
-
-    myCopyData := Buffer(A_PtrSize * 3, 0)
-    NumPut("UPtr", myIpcSignature, myCopyData, 0)
-    NumPut("UInt", myStrBuf.Size, myCopyData, A_PtrSize)
-    NumPut("UPtr", myStrBuf.Ptr, myCopyData, A_PtrSize * 2)
-
-    SendMessage(WM_COPYDATA, 0, myCopyData.Ptr,, Integer(myMainHwnd))
-}
-
-/** Applies brightness and recurses if new target was buffered during WMI lag */
-myProcessBrightnessQueue() {
-    global myPendingBrightness, myWmiNamespace, myWmiBusy, myAppliedBrightness
-    myCurrentTarget := myPendingBrightness
-    try {
-        for method in ComObjGet(myWmiNamespace).ExecQuery("SELECT * FROM WmiMonitorBrightnessMethods")
-            method.WmiSetBrightness(0, myCurrentTarget)
-        myAppliedBrightness := myCurrentTarget
-    }
-    
-    if (myPendingBrightness != myAppliedBrightness)
-        SetTimer(myProcessBrightnessQueue, -1)
-    else
-        myWmiBusy := false
-}
-
-/** Checks Custom mouse state via Raw Input API */
-myCheckCustomState() {
-    global myTargetMouseID
-    
-    myNumDevices := 0
-    DllCall("User32\GetRawInputDeviceList", "Ptr", 0, "UInt*", &myNumDevices, "UInt", A_PtrSize * 2)
-    if (!myNumDevices)
-        return 0
-        
-    myRawInputDeviceList := Buffer(myNumDevices * (A_PtrSize * 2), 0)
-    DllCall("User32\GetRawInputDeviceList", "Ptr", myRawInputDeviceList, "UInt*", &myNumDevices, "UInt", A_PtrSize * 2)
-    
-    Loop myNumDevices {
-        myHandle := NumGet(myRawInputDeviceList, (A_Index - 1) * (A_PtrSize * 2), "Ptr")
+        if (args.Length < 7)
+            ExitApp()
             
-        myNameLength := 0
-        DllCall("User32\GetRawInputDeviceInfo", "Ptr", myHandle, "UInt", 0x20000007, "Ptr", 0, "UInt*", &myNameLength)
+        this.myMainHwnd       := args[2]
+        this.myTargetMouseID  := args[3]
+        this.myIpcMsgId       := Integer(args[4])
+        this.myIpcSignature   := Integer(args[5])
+        this.myIpcSeparator   := args[6]
+        this.myWmiNamespace   := args[7]
+        this.WM_COPYDATA      := 0x004A
+        this.QueueTime        := -1
+
+        this.myWmiInitialized := false
+        this.myPendingBrightness := 0
+        this.myWmiBusy := false
+        this.myAppliedBrightness := -1
+        this.myAudioBusy := false
+        this.myPendingAudioCheck := 0
         
-        if (myNameLength > 0) {
-            myNameBuffer := Buffer(myNameLength * 2, 0)
-            DllCall("User32\GetRawInputDeviceInfo", "Ptr", myHandle, "UInt", 0x20000007, "Ptr", myNameBuffer, "UInt*", &myNameLength)
-            
-            if InStr(StrReplace(StrGet(myNameBuffer), "#", "\"), myTargetMouseID)
-                return 1
-        }
-    }
-    return 0
-}
+        try SetTimer(ObjBindMethod(SilnikGUI, "GłównaPętlaStanu"), 0) ; Disable UI loop in headless daemon
 
-/** Handles WM_INPUT_DEVICE_CHANGE */
-myOnInputDeviceChange(wParam, lParam, msg, hwnd) {
-    if (wParam == 1 || wParam == 2)
-        SetTimer(myProcessMouseState, -50)
-}
+        OnExit(ObjBindMethod(this, "GracefulShutdown"))
 
-/** Dispatches debounced mouse state */
-myProcessMouseState() {
-    myDispatchIpcEvent(myCheckCustomState(), -1, "-1")
-}
-
-/** Broadcast receiver for USB/PnP changes (isolated for Audio only) */
-myOnDeviceChange(wParam, lParam, msg, hwnd) {
-    global myPendingAudioCheck, myAudioBusy, QueueTime
-
-    if (!lParam) {
-        myPendingAudioCheck++
-        if (!myAudioBusy) {
-            myAudioBusy := true
-            SetTimer(myProcessAudioQueue, QueueTime)
-        }
-        return
+        OnMessage(this.myIpcMsgId, ObjBindMethod(this, "HandleRequest"))
+        this.RegisterRawInput()
+        OnMessage(0x00FE, ObjBindMethod(this, "OnInputDeviceChange"))
+        OnMessage(0x219, ObjBindMethod(this, "OnDeviceChange"))
+        
+        Persistent(true)
     }
 
-    if (NumGet(lParam, 4, "UInt") == 5) {
-        if (StrGet(lParam + 28, "UTF-16") ~= "i)(AUDIO|MMDEVAPI|RENDER)") {
-            myPendingAudioCheck++
-            if (!myAudioBusy) {
-                myAudioBusy := true
-                SetTimer(myProcessAudioQueue, QueueTime)
+    static GracefulShutdown(ExitReason, ExitCode) {
+        if (this.HasOwnProp("myWmiSink") && this.myWmiSink)
+            try this.myWmiSink.Cancel()
+    }
+
+    static InitWmiAsync() {
+        if (this.myWmiInitialized)
+            return
+        try {
+            this.myWmiSink := ComObject("WbemScripting.SWbemSink")
+            ComObjConnect(this.myWmiSink, this)
+            ComObjGet(this.myWmiNamespace).ExecNotificationQueryAsync(this.myWmiSink, "SELECT * FROM __InstanceModificationEvent WITHIN 1 WHERE TargetInstance ISA 'WmiMonitorBrightness'")
+            this.myWmiInitialized := true
+        }
+    }
+
+    static OnObjectReady(objWbemObject, args*) {
+        try {
+            myNewBrightness := objWbemObject.TargetInstance.CurrentBrightness
+            if (myNewBrightness != this.myAppliedBrightness) {
+                this.myAppliedBrightness := myNewBrightness
+                this.DispatchIpcEvent(-1, myNewBrightness, "-1")
             }
         }
     }
-}
 
-/** Processes audio state sync and recurses if event storm occurs */
-myProcessAudioQueue() {
-    global myPendingAudioCheck, myAudioBusy
-    myCurrentCheck := myPendingAudioCheck
-    
-    myAudio := AudioMonitor.Update()
-    
-    if (myPendingAudioCheck != myCurrentCheck)
-        SetTimer(myProcessAudioQueue, QueueTime)
-    else {
-        myAudioBusy := false
-        myDispatchIpcEvent(-1, -1, myAudio)
+    static RegisterRawInput() {
+        myRid := Buffer(8 + A_PtrSize, 0)
+        NumPut("UShort", 1, myRid, 0)
+        NumPut("UShort", 2, myRid, 2)
+        NumPut("UInt", 0x00002000, myRid, 4) ; RIDEV_DEVNOTIFY
+        NumPut("Ptr", A_ScriptHwnd, myRid, 8)
+        DllCall("User32\RegisterRawInputDevices", "Ptr", myRid, "UInt", 1, "UInt", myRid.Size)
     }
-}
 
-myHandleRequest(wParam, lParam, msg, hwnd) {
-    global myTargetMouseID, myWmiNamespace, myPendingBrightness, myWmiBusy
-    
-    if (wParam == 4)
-        ExitApp()
-        
-    /** 0. Throttle Brightness Update */
-    if (wParam == 5) {
-        myPendingBrightness := lParam
-        if (!myWmiBusy) {
-            myWmiBusy := true
-            SetTimer(myProcessBrightnessQueue, -1)
+    static DispatchIpcEvent(CustomState, brightnessVal, audioState := "-1") {
+        myPayload := CustomState . this.myIpcSeparator . brightnessVal . this.myIpcSeparator . audioState
+        myStrBuf := Buffer(StrPut(myPayload, "UTF-16") * 2, 0)
+        StrPut(myPayload, myStrBuf, "UTF-16")
+
+        myCopyData := Buffer(A_PtrSize * 3, 0)
+        NumPut("UPtr", this.myIpcSignature, myCopyData, 0)
+        NumPut("UInt", myStrBuf.Size, myCopyData, A_PtrSize)
+        NumPut("UPtr", myStrBuf.Ptr, myCopyData, A_PtrSize * 2)
+
+        SendMessage(this.WM_COPYDATA, 0, myCopyData.Ptr,, Integer(this.myMainHwnd))
+    }
+
+    static ProcessBrightnessQueue() {
+        myCurrentTarget := this.myPendingBrightness
+        try {
+            for method in ComObjGet(this.myWmiNamespace).ExecQuery("SELECT * FROM WmiMonitorBrightnessMethods")
+                method.WmiSetBrightness(0, myCurrentTarget)
+            this.myAppliedBrightness := myCurrentTarget
         }
+        
+        if (this.myPendingBrightness != this.myAppliedBrightness)
+            SetTimer(ObjBindMethod(this, "ProcessBrightnessQueue"), -1)
+        else
+            this.myWmiBusy := false
+    }
+
+    static CheckCustomState() {
+        myNumDevices := 0
+        DllCall("User32\GetRawInputDeviceList", "Ptr", 0, "UInt*", &myNumDevices, "UInt", A_PtrSize * 2)
+        if (!myNumDevices)
+            return 0
+            
+        myRawInputDeviceList := Buffer(myNumDevices * (A_PtrSize * 2), 0)
+        DllCall("User32\GetRawInputDeviceList", "Ptr", myRawInputDeviceList, "UInt*", &myNumDevices, "UInt", A_PtrSize * 2)
+        
+        Loop myNumDevices {
+            myHandle := NumGet(myRawInputDeviceList, (A_Index - 1) * (A_PtrSize * 2), "Ptr")
+                
+            myNameLength := 0
+            DllCall("User32\GetRawInputDeviceInfo", "Ptr", myHandle, "UInt", 0x20000007, "Ptr", 0, "UInt*", &myNameLength)
+            
+            if (myNameLength > 0) {
+                myNameBuffer := Buffer(myNameLength * 2, 0)
+                DllCall("User32\GetRawInputDeviceInfo", "Ptr", myHandle, "UInt", 0x20000007, "Ptr", myNameBuffer, "UInt*", &myNameLength)
+                
+                if InStr(StrReplace(StrGet(myNameBuffer), "#", "\"), this.myTargetMouseID)
+                    return 1
+            }
+        }
+        return 0
+    }
+
+    static OnInputDeviceChange(wParam, lParam, msg, hwnd) {
+        if (wParam == 1 || wParam == 2)
+            SetTimer(ObjBindMethod(this, "ProcessMouseState"), -50)
+    }
+
+    static ProcessMouseState() {
+        this.DispatchIpcEvent(this.CheckCustomState(), -1, "-1")
+    }
+
+    static OnDeviceChange(wParam, lParam, msg, hwnd) {
+        if (!lParam) {
+            this.myPendingAudioCheck++
+            if (!this.myAudioBusy) {
+                this.myAudioBusy := true
+                SetTimer(ObjBindMethod(this, "ProcessAudioQueue"), this.QueueTime)
+            }
+            return
+        }
+
+        if (NumGet(lParam, 4, "UInt") == 5) {
+            if (StrGet(lParam + 28, "UTF-16") ~= "i)(AUDIO|MMDEVAPI|RENDER)") {
+                this.myPendingAudioCheck++
+                if (!this.myAudioBusy) {
+                    this.myAudioBusy := true
+                    SetTimer(ObjBindMethod(this, "ProcessAudioQueue"), this.QueueTime)
+                }
+            }
+        }
+    }
+
+    static ProcessAudioQueue() {
+        myCurrentCheck := this.myPendingAudioCheck
+        
+        myAudio := HardwareDaemon.AudioMonitor.Update()
+        
+        if (this.myPendingAudioCheck != myCurrentCheck)
+            SetTimer(ObjBindMethod(this, "ProcessAudioQueue"), this.QueueTime)
+        else {
+            this.myAudioBusy := false
+            this.DispatchIpcEvent(-1, -1, myAudio)
+        }
+    }
+
+    static HandleRequest(wParam, lParam, msg, hwnd) {
+        if (wParam == 4)
+            ExitApp()
+            
+        /** 0. Throttle Brightness Update */
+        if (wParam == 5) {
+            this.myPendingBrightness := lParam
+            if (!this.myWmiBusy) {
+                this.myWmiBusy := true
+                SetTimer(ObjBindMethod(this, "ProcessBrightnessQueue"), -1)
+            }
+            return 1
+        }
+
+        /** 1. Fetch mouse state via Raw Input API */
+        myCustomActive := -1
+        if (wParam & 1)
+            myCustomActive := this.CheckCustomState()
+
+        /** 2. Fetch screen brightness via WMI */
+        myBrightness := -1
+        if (wParam & 2) {
+            try for monitor in ComObjGet(this.myWmiNamespace).ExecQuery("SELECT CurrentBrightness FROM WmiMonitorBrightness")
+                myBrightness := monitor.CurrentBrightness
+        }
+
+        /** 3. Fetch Audio status via COM */
+        myAudio := "-1"
+        if (wParam & 4)
+            myAudio := HardwareDaemon.AudioMonitor.Update()
+
+        /** 4. Dispatch data */
+        this.DispatchIpcEvent(myCustomActive, myBrightness, myAudio)
+        SetTimer(ObjBindMethod(this, "InitWmiAsync"), -50)
         return 1
     }
 
-    /** 1. Fetch mouse state via Raw Input API */
-    myCustomActive := -1
-    if (wParam & 1)
-        myCustomActive := myCheckCustomState()
-
-    /** 2. Fetch screen brightness via WMI */
-    myBrightness := -1
-    if (wParam & 2) {
-        try for monitor in ComObjGet(myWmiNamespace).ExecQuery("SELECT CurrentBrightness FROM WmiMonitorBrightness")
-            myBrightness := monitor.CurrentBrightness
-    }
-
-    /** 3. Fetch Audio status via COM */
-    myAudio := "-1"
-    if (wParam & 4)
-        myAudio := AudioMonitor.Update()
-
-    /** 4. Dispatch data */
-    myDispatchIpcEvent(myCustomActive, myBrightness, myAudio)
-    SetTimer(myInitWmiAsync, -200)
-    return 1
-}
-
-class AudioMonitor {
+    class AudioMonitor {
     static myEnumerator := 0
     static PKEY_FormFactor := Buffer(20, 0)
     static PKEY_DevEnum := Buffer(20, 0)
@@ -332,4 +272,5 @@ class AudioMonitor {
         DllCall("Ole32\PropVariantClear", "Ptr", val)
         return res
     }
+}
 }

@@ -23,9 +23,6 @@ if not exist "dist" (
 echo Compiling main executable (mouse_ctrl.exe)...
 %COMPILER% /in "src\mouse_ctrl.ahk" /out "dist\mouse_ctrl.exe" /icon "src\mouse_ctrl.ico" /base %BASE_BIN%  /compress 0
 
-echo Compiling worker daemon (myHardwareWorker.exe)...
-%COMPILER% /in "src\myHardwareWorker.ahk" /out "dist\myHardwareWorker.exe" /icon "src\mouse_ctrl.ico" /base %BASE_BIN% /compress 0
-
 echo.
-echo Build complete! Both .exe files have been generated in the "dist" directory.
+echo Build complete! The .exe file has been generated in the "dist" directory.
 pause

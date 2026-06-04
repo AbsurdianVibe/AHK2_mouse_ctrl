@@ -3,18 +3,48 @@
 ;@Ahk2Exe-SetCompanyName AbsurdianVibe
 ;@Ahk2Exe-SetDescription Mouse Control
 ;@Ahk2Exe-SetCopyright Copyright (c) 2026 AbsurdianVibe
-;@Ahk2Exe-SetVersion 1.0.1
+;@Ahk2Exe-SetVersion 1.1.0
 ;@Ahk2Exe-SetProductName Mouse Control
 ;@Ahk2Exe-SetLanguage 0x0409
-#SingleInstance Force
+#SingleInstance Off
 A_MaxHotkeysPerInterval := 200 ; Anti-spam scrolla
 ProcessSetPriority "High"
+
+; #region --- BARIERA ROZRUCHOWA (CLI INTERCEPTOR) ---
+if (A_Args.Length > 0) {
+    A_IconHidden := true
+    if (A_Args[1] == "WARMUP") {
+        myGui := Gui("-Caption +ToolWindow")
+        myDict := "💻✂🔍📄🡰🡲🡱🡳◑🔊🔉ψᛒ⊙🎧📞—✓▲▼◄►🞀❘❙❚🞂✲➠🡷🡵✍📸⚠️"
+        for myOpt in ["s9 norm", "s10 norm", "s13 w100", "s15 bold", "s20 norm"] {
+            myGui.SetFont(myOpt, "Segoe UI")
+            myGui.Add("Text",, myDict)
+        }
+        myGui.Destroy()
+        ExitApp()
+    }
+    if (A_Args[1] == "DAEMON") {
+        HardwareDaemon.Boot(A_Args)
+        Exit()
+    }
+}
+; #endregion
+
+; --- MANUAL SINGLE INSTANCE FORCE ---
+DetectHiddenWindows(true)
+for hw in WinGetList("MouseCtrl_Main_Window") {
+    if (hw != A_ScriptHwnd)
+        try WinClose(hw)
+}
+WinSetTitle("MouseCtrl_Main_Window", "ahk_id " A_ScriptHwnd)
+
 DllCall("User32\ChangeWindowMessageFilterEx", "Ptr", A_ScriptHwnd, "UInt", 0x0044, "UInt", 1, "Ptr", 0) ; Przepustka UIPI dla restartu (#SingleInstance)
 
 #Include "..\AHK2_external_code\UIA.ahk"
 #Include "..\AHK2_Colorful_GUI\AHK2ColorfulGUI.ahk"
 #Include "mouse_ctrl_lib.ahk"
 #Include "..\AHK2_My_libs\MojeFunkcje.ahk"
+#Include "myHardwareWorker.ahk"
 
 ; #region --- IPC PROTOCOL (SSoT) ---
 /** Dynamic Win32 message registration to prevent ID collisions.
@@ -61,6 +91,9 @@ if !FileExist(IniPath) { ; Init default INI
 ; Wczytywanie ustawień
 class DaneGlobalne {
     static __New() {
+        if (A_Args.Length > 0 && (A_Args[1] == "WARMUP" || A_Args[1] == "DAEMON"))
+            return
+            
         try Sekcja := IniRead(IniPath, "Settings")
         catch 
             Sekcja := ""
@@ -168,24 +201,17 @@ SetTimer(AsynchronicznaInicjalizacja, -1) ; Uruchom WMI w tle
 
 AsynchronicznaInicjalizacja() {
     ; --- DAEMON ZOMBIE PREVENTION ---
-    myDaemonPath := A_ScriptDir . (A_IsCompiled ? "\myHardwareWorker.exe" : "\myHardwareWorker.ahk")
     DetectHiddenWindows(true)
-    if (A_IsCompiled) {
-        for hw in WinGetList("ahk_exe myHardwareWorker.exe")
-            try WinClose(hw)
-    } else {
-        for hw in WinGetList("ahk_class AutoHotkey") {
-            try if InStr(WinGetTitle(hw), "myHardwareWorker.ahk")
-                WinClose(hw)
-        }
-    }
+    for hw in WinGetList("MouseCtrl_Daemon_Window")
+        try WinClose(hw)
+
     ; --- START DAEMON ---
     global TargetMouseID, myWorkerHwnd, myIpcMsgId, myIpcSignature, myIpcSeparator, myWmiNamespace
     try {
-        myTargetExe := A_IsCompiled ? '"' myDaemonPath '"' : '"' A_AhkPath '" "' myDaemonPath '"'
+        myTargetExe := A_IsCompiled ? '"' A_ScriptFullPath '"' : '"' A_AhkPath '" "' A_ScriptFullPath '"'
         Run(myTargetExe ' "WARMUP"', , "Hide")
-        Run(myTargetExe ' "' A_ScriptHwnd '" "' TargetMouseID '" "' myIpcMsgId '" "' myIpcSignature '" "' myIpcSeparator '" "' myWmiNamespace '"', , "Hide", &WorkerPID)
-        myWorkerHwnd := WinWait((A_IsCompiled ? "ahk_pid " : "ahk_class AutoHotkey ahk_pid ") WorkerPID,, 30)
+        Run(myTargetExe ' "DAEMON" "' A_ScriptHwnd '" "' TargetMouseID '" "' myIpcMsgId '" "' myIpcSignature '" "' myIpcSeparator '" "' myWmiNamespace '"', , "Hide", &WorkerPID)
+        myWorkerHwnd := WinWait("MouseCtrl_Daemon_Window ahk_pid " WorkerPID,, 30)
     }
 
     ; Cache Shell API path
@@ -1049,7 +1075,7 @@ PobierzStatusAudio() {
 
 myBindLateHotkeys() {
     ; --- OKNO LEGENDY ---
-    HotIf((*) => LegendaIstnieje())
+    HotIf((*) => LegendaIstnieje() && DllCall("IsWindowVisible", "Ptr", LegendaGui.Hwnd))
     Hotkey("WheelDown", myLegendaWheelDown, "On")
     Hotkey("WheelUp", myLegendaWheelUp, "On")
     Hotkey("~LButton", myLegendaLButton, "On")
@@ -1057,7 +1083,7 @@ myBindLateHotkeys() {
     Hotkey("~MButton", (*) => LegendaGui.Hide(), "On")
     Hotkey("~RButton", (*) => LegendaGui.Hide(), "On")
 
-    HotIf((*) => LegendaIstnieje() && WinGetMinMax("ahk_id " LegendaGui.hwnd) != -1)
+    HotIf((*) => LegendaIstnieje() && DllCall("IsWindowVisible", "Ptr", LegendaGui.Hwnd) && WinGetMinMax("ahk_id " LegendaGui.hwnd) != -1)
     Hotkey("F1", (*) => (PokazUstawienia(), LegendaGui.Hide()), "On")
 
     ; --- MYSZ Custom ---
