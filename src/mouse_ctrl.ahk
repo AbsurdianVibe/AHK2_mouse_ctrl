@@ -3,7 +3,7 @@
 ;@Ahk2Exe-SetCompanyName AbsurdianVibe
 ;@Ahk2Exe-SetDescription Mouse Control
 ;@Ahk2Exe-SetCopyright Copyright (c) 2026 AbsurdianVibe
-;@Ahk2Exe-SetVersion 1.1.0
+;@Ahk2Exe-SetVersion 1.1.1
 ;@Ahk2Exe-SetProductName Mouse Control
 ;@Ahk2Exe-SetLanguage 0x0409
 #SingleInstance Off
@@ -85,6 +85,7 @@ if !FileExist(IniPath) { ; Init default INI
     IniWrite(0.15, IniPath, "Settings", "HoldThreshold") ; Domyślny DoubleClick (s)
     IniWrite(0, IniPath, "Settings", "LastCustomActive")
     IniWrite(10, IniPath, "Settings", "LastBrightness")
+    IniWrite(0, IniPath, "Settings", "LowerBrightness")
     IniWrite("HID\VID_4E53&PID_5407", IniPath, "Settings", "TargetMouseID")
 }
 
@@ -103,7 +104,12 @@ class DaneGlobalne {
             if RegExMatch(A_LoopField, "^(.*?)=(.*)$", &m)
                 myIni[m[1]] := m[2]
                 
-        myRead(Klucz, Domyslna) => myIni.Has(Klucz) ? myIni[Klucz] : Domyslna
+        myRead(Klucz, Domyslna) {
+            if myIni.Has(Klucz)
+                return myIni[Klucz]
+            IniWrite(Domyslna, IniPath, "Settings", Klucz)
+            return Domyslna
+        }
 
         global DefaultProfile      := Number(myRead("DefaultProfile", 0))
         global BrightnessStepMouse := Number(myRead("BrightnessStepMouse", 3))
@@ -112,6 +118,7 @@ class DaneGlobalne {
         global PokazPodpowiedzi    := Number(myRead("PokazPodpowiedzi", 1))
         global myAdminStartLvl     := Number(myRead("AdminStartLvl", 1))
         global HoldThreshold       := Float(myRead("HoldThreshold", 0.15))
+        global myLowerBrightness   := Number(myRead("LowerBrightness", 0))
         global ListaProfili        := ["AUTO (Detect)", "Custom Mouse + Keyboard", "Standard Mouse + Keyboard", "Keyboard Only", "OFF Mode"]
 
         if FileExist(A_ScriptDir . "\mouse_ctrl.ico")
@@ -986,8 +993,8 @@ AktualizujTooltipWLocie() => LegendaIstnieje() && (MouseGetPos(,,, &hCtrl, 2), O
 ; #region --- OBSŁUGA ZMIANY JASNOŚCI ---
 
 ZmianaJasnosci(delta) {
-    global currentBrightness, myWorkerHwnd, myIpcMsgId
-    currentBrightness := Min(Max(currentBrightness + delta, 10), 100)
+    global currentBrightness, myWorkerHwnd, myIpcMsgId, myLowerBrightness
+    currentBrightness := Min(Max(currentBrightness + delta, myLowerBrightness), 100)
     if (IsSet(myWorkerHwnd) && myWorkerHwnd)
         try PostMessage(myIpcMsgId, 5, currentBrightness,, myWorkerHwnd)
     SilnikGUI.CustomTooltip("Brightness: " . currentBrightness . "%  ◑", {czas: 1500})
