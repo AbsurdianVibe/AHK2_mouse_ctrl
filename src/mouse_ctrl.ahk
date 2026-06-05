@@ -3,7 +3,7 @@
 ;@Ahk2Exe-SetCompanyName AbsurdianVibe
 ;@Ahk2Exe-SetDescription Mouse Control
 ;@Ahk2Exe-SetCopyright Copyright (c) 2026 AbsurdianVibe
-;@Ahk2Exe-SetVersion 1.1.1
+;@Ahk2Exe-SetVersion 1.1.2
 ;@Ahk2Exe-SetProductName Mouse Control
 ;@Ahk2Exe-SetLanguage 0x0409
 #SingleInstance Off
@@ -41,6 +41,7 @@ WinSetTitle("MouseCtrl_Main_Window", "ahk_id " A_ScriptHwnd)
 DllCall("User32\ChangeWindowMessageFilterEx", "Ptr", A_ScriptHwnd, "UInt", 0x0044, "UInt", 1, "Ptr", 0) ; Przepustka UIPI dla restartu (#SingleInstance)
 
 #Include "..\AHK2_external_code\UIA.ahk"
+; #Include "D:\PRACA\skrypryAHK\AHK2_Colorful_GUI\AHK2ColorfulGUI.ahk" 
 #Include "..\AHK2_Colorful_GUI\AHK2ColorfulGUI.ahk"
 #Include "mouse_ctrl_lib.ahk"
 #Include "..\AHK2_My_libs\MojeFunkcje.ahk"
@@ -418,7 +419,7 @@ PokazUstawienia(*) {
     global DefaultProfile, BrightnessStepMouse, BrightnessStepKbd, VolStepMouse, IniPath, GlUs, Uprawnienia
     global StartProf, Edit_BM, Edit_BK, Edit_VM, Edit_VD
     global StatusTextControl, Check_Autostart, Check_Podpowiedzi, UprawnieniaCheckbox
-    SzerOknUst := 220 
+    SzerOknUst := 220
     SettingsTipDelON := 300
     pad := 10
     ;STATUS AUTOSTARU
@@ -436,7 +437,7 @@ PokazUstawienia(*) {
     AdminInfoCtrl := GlUs.Add("Text", "vadmininfoU +0x0100  y+10", (A_IsAdmin ? " ADMIN " : " REGULAR "))
     AdminInfoCtrl.SetFont("bold")    
     AdminInfoCtrl.GetPos(,,&Adw)
-    AdminInfoCtrl.move(((SzerOknUst+pad)-Adw)/2)
+    AdminInfoCtrl.move(((SzerOknUst+pad)-(Adw/(A_ScreenDPI / 96)))/2)
     AdminInfoCtrl.HoverAction := (*) => SilnikGUI.CustomTooltip((TipText.AdminTip), {delayon:SettingsTipDelON, trybPozycji:AdminInfoCtrl, Align:"up-5", Transparent: 0.1, TransClick: 1}) ;
 
     Tytul := GlUs.Add("Text", "Center y+15 x" . ((SzerOknUst+pad)-szerDD)/2 . " w" . szerDD, "Default startup profile:")
@@ -458,7 +459,7 @@ PokazUstawienia(*) {
     Check_Autostart := GlUs.DodajCheckbox("Run at system startup", {czyZaznaczony: IsAutostartActive, pozycja: "xm  y+15"})
     Check_Autostart.OnEvent("Click", WeryfikujKlikniecieAutostartu)
     ; Czcionka statusu
-    StatusTextControl := GlUs.Add("Text", "x" . Check_Autostart.LabelX . " y+2", StatusOpis)
+    StatusTextControl := GlUs.Add("Text", "x" . Check_Autostart.LabelX . " y+2", StatusOpis,0)
     StatusTextControl.KolorBazowy := "Gray" ; [FIX] Customowy kolor z obsługą przyciemniania
     ; Reset czcionki
     GlUs.GuiObj.SetFont("s10 " . SilnikGUI.Motyw.Tekst)
