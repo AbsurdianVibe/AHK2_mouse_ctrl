@@ -88,6 +88,8 @@ if !FileExist(IniPath) { ; Init default INI
     IniWrite(10, IniPath, "Settings", "LastBrightness")
     IniWrite(0, IniPath, "Settings", "LowerBrightness")
     IniWrite("HID\VID_4E53&PID_5407", IniPath, "Settings", "TargetMouseID")
+    IniWrite(0, IniPath, "Settings", "LastHScroll")
+    IniWrite(0, IniPath, "Settings", "LastCustomVerticalArrows")
 }
 
 ; Wczytywanie ustawień
@@ -121,6 +123,8 @@ class DaneGlobalne {
         global HoldThreshold       := Float(myRead("HoldThreshold", 0.15))
         global myLowerBrightness   := Number(myRead("LowerBrightness", 0))
         global ListaProfili        := ["AUTO (Detect)", "Custom Mouse + Keyboard", "Standard Mouse + Keyboard", "Keyboard Only", "OFF Mode"]
+        global myHScrollActive     := Number(myRead("LastHScroll", 0))
+        global myCustomVerticalArrows := Number(myRead("LastCustomVerticalArrows", 0))
 
         if FileExist(A_ScriptDir . "\mouse_ctrl.ico")
             TraySetIcon(A_ScriptDir . "\mouse_ctrl.ico")
@@ -298,6 +302,8 @@ myOnHardwareStateReady(wParam, lParam, msg, hwnd) {
 ZapiszStanSprzetowy(ExitReason, ExitCode) {
     IniWrite(CustomActive, IniPath, "Settings", "LastCustomActive")
     IniWrite(currentBrightness, IniPath, "Settings", "LastBrightness")
+    IniWrite(myHScrollActive, IniPath, "Settings", "LastHScroll")
+    IniWrite(myCustomVerticalArrows, IniPath, "Settings", "LastCustomVerticalArrows")
     myFetchHardwareState(4)
 }
 
@@ -873,8 +879,8 @@ TrescLegendy(profil, CustomState) {
     
     ; Definicje tekstów
     txtKlawiatura := "Ctrl+Alt+R = Unlock keys`nCtrl+Alt+P = Screenshot`nCtrl+F1/F2 = Brightness`nCtrl+F12 = Change profile`nShift + `` = ~"
-    txtCustom    := "Right(Hold) = Shift`nRight + Wheel = Volume`nRight + Middle = Mute`nRight + X1 = Alt+Tab`nRight + X2 = Shift+Alt+Tab`nRight(2x) = F11`nX1 + Wheel = Brightness`nX1 + Middle = Screen off`nX1(2x) = Esc`nX1(2xHold) + Wheel = Arrows 🡰 🡲`nX2(Hold) = Ctrl`nX2(Hold) + Wheel = Zoom 🔍`nX2 + Left(2x) = Ctrl+V`nX2 + Left(2xHold) = LClick+Ctrl+V`nX2 + Right = Ctrl+C`nX2 + Right(Hold) = Ctrl+X`nX2 + Right(2x) = LClick+Ctrl+C`nX2 + Right(2xHold) = LClick+Ctrl+X`nX2 + X1 + Wheel = Ctrl+Z/Y`nX2(2x) = Ctrl+Shift+S`nX2(2xHold) + Wheel = Horiz. Scroll"
-    txtStandard   := "Right(Hold) = Shift`nRight + Wheel = Volume`nRight + Middle = Mute`nRight + Left = Alt+Tab`nRight(2x) = F11`nRight(2xHold) + Wheel = Arrows / H-Scroll (LClick)`nLeft + Wheel = Brightness`nLeft + Middle = Screen off`nLeft + Right = Alt+Tab"
+    txtCustom    := "Right(Hold) = Shift`nRight + Wheel = Volume`nRight + Middle = Mute`nRight + X1 = Alt+Tab`nRight + X2 = Shift+Alt+Tab`nRight(2x) = F11`nX1 + Wheel = Brightness`nX1 + Middle = Screen off`nX1(2x) = Esc`nX1(2xHold) + Wheel = ARR " . (myCustomVerticalArrows ? "🡱 🡳 / 🡰 🡲" : "🡰 🡲 / 🡱 🡳") . " (LClick)`nX2(Hold) = Ctrl`nX2(Hold) + Wheel = Zoom 🔍`nX2 + Left(2x) = Ctrl+V`nX2 + Left(2xHold) = LClick+Ctrl+V`nX2 + Right = Ctrl+C`nX2 + Right(Hold) = Ctrl+X`nX2 + Right(2x) = LClick+Ctrl+C`nX2 + Right(2xHold) = LClick+Ctrl+X`nX2 + X1 + Wheel = Ctrl+Z/Y`nX2(2x) = Ctrl+Shift+S`nX2(2xHold) + Wheel = Horiz. SCR"
+    txtStandard   := "Right(Hold) = Shift`nRight + Wheel = Volume`nRight + Middle = Mute`nRight + Left = Alt+Tab`nRight(2x) = F11`nRight(2xHold) + Wheel = " . ["ARR 🡰 🡲 / SCR 🞀 ❘❙❚❙❘ 🞂 / ARR 🡱 🡳", "SCR 🞀 ❘❙❚❙❘ 🞂 / ARR 🡱 🡳 / ARR 🡰 🡲", "ARR 🡱 🡳 / ARR 🡰 🡲 / SCR 🞀 ❘❙❚❙❘ 🞂"][myHScrollActive + 1] . " (Toggle LClick)`nLeft + Wheel = Brightness`nLeft + Middle = Screen off`nLeft + Right = Alt+Tab"
 
     ; Wartości domyślne
     dane.Header     := (profil == 0) ? "AUTO" : ((profil == 4) ? "" : "MANUAL")
@@ -1195,7 +1201,32 @@ myLegendaLButton(*) {
         LegendaGui.Hide()
     }
 }
-arrowFocusNav(button:="XButton1") => (SilnikGUI.CustomTooltip("SCROLL  🡱 🡳   ➠  ARROWS  🡰 🡲", {ON: (!EkranWygaszony && PokazPodpowiedzi), DelayON: 100}), UstawFocusPodMysz(), MouseCtrlLib.AktywujTrybKola((*) => SendEvent("{Left}"), (*) => SendEvent("{Right}"), 0, 0, () => SilnikGUI.CustomTooltip(""), button), SilnikGUI.CustomTooltip(""))
+
+arrowFocusNav(button:="XButton1", togle:="*MButton") {
+    myUpdateTooltip() => SilnikGUI.CustomTooltip("SCR  🡱 🡳   ➠   ARR  " (myCustomVerticalArrows ? "🡱 🡳" : "🡰 🡲") "`n.[2].`nMCLICK  ➠  TOGGLE", {ON: (!EkranWygaszony && PokazPodpowiedzi), DelayON: 100})
+    
+    myToggleState(*) {
+        global myCustomVerticalArrows
+        myCustomVerticalArrows := !myCustomVerticalArrows
+        myUpdateTooltip()
+    }
+    
+    myOnStart() {
+        UstawFocusPodMysz()
+        myUpdateTooltip()
+        try Hotkey(togle, myToggleState, "On")
+    }
+    
+    myOnStop() {
+        try Hotkey(togle, "Off")
+        SilnikGUI.CustomTooltip("")
+    }
+    
+    myWheelUp(*) => myCustomVerticalArrows ? SendEvent("{Up}") : SendEvent("{Left}")
+    myWheelDown(*) => myCustomVerticalArrows ? SendEvent("{Down}") : SendEvent("{Right}")
+    
+    MouseCtrlLib.AktywujTrybKola(myWheelUp, myWheelDown, myOnStart, myOnStop, () => SilnikGUI.CustomTooltip(""), button)
+}
 
 global myStandardProxyActive := false
 global myNavState := { AltActive: false, CtrlActive: false }
@@ -1204,12 +1235,12 @@ global myNavState := { AltActive: false, CtrlActive: false }
  * @param button */
 myStandardScrollMode(button := "RButton", togle := "*LButton") {
     global myStandardProxyActive
-    myState := { HScroll: false }
     
-    myUpdateTooltip() => SilnikGUI.CustomTooltip((myState.HScroll ? "SCROLL  🡱 🡳   ➠   H-SCROLL  🞀 ❘❙❚❙❘ 🞂`n.[2].`n" : "SCROLL  🡱 🡳   ➠   ARROWS  🡰 🡲`n.[2].`n") "MCLICK  ➠  TOGGLE`n.[3].`nLCLICK  ➠  CTRL+TAB", {ON: (!EkranWygaszony && PokazPodpowiedzi), DelayON: 100})
+    myUpdateTooltip() => SilnikGUI.CustomTooltip("SCR  🡱 🡳   ➠   " . ["ARR  🡰 🡲", "SCR  🞀 ❘❙❚❙❘ 🞂", "ARR  🡱 🡳"][myHScrollActive + 1] . "`n.[2].`nMCLICK  ➠  TOGGLE`n.[3].`nLCLICK  ➠  CTRL+TAB", {ON: (!EkranWygaszony && PokazPodpowiedzi), DelayON: 100})
     
     myToggleState(*) {
-        myState.HScroll := !myState.HScroll
+        global myHScrollActive
+        myHScrollActive := Mod(myHScrollActive + 1, 3)
         myUpdateTooltip()
     }
     
@@ -1226,8 +1257,20 @@ myStandardScrollMode(button := "RButton", togle := "*LButton") {
         SilnikGUI.CustomTooltip("")
     }
     
-    myWheelUp(*) => myState.HScroll ? (SendLevel(1), SendEvent("{WheelLeft}")) : SendEvent("{Left}")
-    myWheelDown(*) => myState.HScroll ? (SendLevel(1), SendEvent("{WheelRight}")) : SendEvent("{Right}")
+    myWheelUp(*) {
+        if (myHScrollActive == 1) {
+            SendLevel(1)
+            return SendEvent("{WheelLeft}")
+        }
+        SendEvent((myHScrollActive == 2) ? "{Up}" : "{Left}")
+    }
+    myWheelDown(*) {
+        if (myHScrollActive == 1) {
+            SendLevel(1)
+            return SendEvent("{WheelRight}")
+        }
+        SendEvent((myHScrollActive == 2) ? "{Down}" : "{Right}")
+    }
     
     MouseCtrlLib.AktywujTrybKola(myWheelUp, myWheelDown, myOnStart, myOnStop, () => SilnikGUI.CustomTooltip(""), button)
 }
@@ -1235,7 +1278,7 @@ myStandardScrollMode(button := "RButton", togle := "*LButton") {
 myCustomXButton1(*) {
     Multiklik("XButton1", 
         (*) => Send("{XButton1}"),
-        (*) => (!PokazPodpowiedzi ? (SilnikGUI.CustomTooltip("Brightness: " . currentBrightness . "%  ◑", {ON: !EkranWygaszony, czas: 1500})) : (SilnikGUI.CustomTooltip("SCROLL  ➠  BRIGHTNESS  ◑`n..`nMIDDLE  ➠  SCREEN OFF  💻`n.[2].`n(x2)  ➠  ESC  🡰`n..`n(2xHOLD)+SCROLL  🡱 🡳  ➠  ARROWS  🡰 🡲`n.[2].`nBrightness: " . currentBrightness . "%  ◑", {ON: !EkranWygaszony, MargPoz: 4})), MouseCtrlLib.AktywujTrybKola((*) => ZmianaJasnosci(BrightnessStepMouse), (*) => ZmianaJasnosci(-BrightnessStepMouse),(*) => Hotkey("*RButton", (*) => (UsunTip(), WygasEkran("XButton1")), "On"), (*) => Hotkey("*RButton", (*) => AkcjaRButton(), "On"), 0, "XButton1"), SilnikGUI.CustomTooltip("")),
+        (*) => (!PokazPodpowiedzi ? (SilnikGUI.CustomTooltip("Brightness: " . currentBrightness . "%  ◑", {ON: !EkranWygaszony, czas: 1500})) : (SilnikGUI.CustomTooltip("SCR  ➠  BRIGHTNESS  ◑`n..`nMIDDLE  ➠  SCREEN OFF  💻`n.[2].`n(x2)  ➠  ESC  🡰`n..`n(2xHOLD)+SCR  🡱 🡳  ➠  ARR  " . (myCustomVerticalArrows ? "🡱 🡳 / 🡰 🡲" : "🡰 🡲 / 🡱 🡳") . "`n.[2].`nBrightness: " . currentBrightness . "%  ◑", {ON: !EkranWygaszony, MargPoz: 4})), MouseCtrlLib.AktywujTrybKola((*) => ZmianaJasnosci(BrightnessStepMouse), (*) => ZmianaJasnosci(-BrightnessStepMouse),(*) => Hotkey("*RButton", (*) => (UsunTip(), WygasEkran("XButton1")), "On"), (*) => Hotkey("*RButton", (*) => AkcjaRButton(), "On"), 0, "XButton1"), SilnikGUI.CustomTooltip("")),
         (*) => SendEvent("{Escape}"),
         (*) => arrowFocusNav(),
         HoldThreshold
@@ -1245,9 +1288,9 @@ myCustomXButton1(*) {
 myCustomXButton2(*) {
     Multiklik("XButton2",
         (*) => Send("{XButton2}"),
-            (*) => (SilnikGUI.CustomTooltip("CTRL  ✲`n..`nSCROLL  🡱 🡳  ➠  ZOOM   ( + ) 🔍 ( - )`n.[4].`n- L E F T -`n.[3].`n(x2) ➠  CTRL+V  📄`n..`n(2xHOLD)  ➠  CTRL+V+LEFT  📄🡳`n.[4].`n- R I G H T -`n.[3].`n(x1)  ➠  CTRL+C  📄📄`n..`n(HOLD)  ➠  CTRL+X  ✂`n..`n(x2)  ➠  CTRL+C+LEFT   📄📄🡳`n..`n(2xHOLD)  ➠  CTRL+X+LEFT  ✂🡳`n.[4].`nX1+SCROLL  🡱 🡳  ➠  CTRL+Z/Y  🡷 🡵`n.[3].`n(x2)  ➠  CTRL+SHIFT+S  ✍`n..`n(2xHOLD)+SCROLL  🡱 🡳  ➠  SCROLL  🞀 ❘❙❚❙❘ 🞂", {ON: (!EkranWygaszony && PokazPodpowiedzi), MargPoz: 2}), MouseCtrlLib.AktywujTrybKola((*) => Send("{WheelUp}"), (*) => Send("{WheelDown}"), (*) => Send("{Ctrl Down}"), (*) => Send("{Ctrl Up}"), () => SilnikGUI.CustomTooltip(""), "XButton2"), SilnikGUI.CustomTooltip("")),
+            (*) => (SilnikGUI.CustomTooltip("CTRL  ✲`n..`nSCR  🡱 🡳  ➠  ZOOM   ( + ) 🔍 ( - )`n.[4].`n- L E F T -`n.[3].`n(x2) ➠  CTRL+V  📄`n..`n(2xHOLD)  ➠  CTRL+V+LEFT  📄🡳`n.[4].`n- R I G H T -`n.[3].`n(x1)  ➠  CTRL+C  📄📄`n..`n(HOLD)  ➠  CTRL+X  ✂`n..`n(x2)  ➠  CTRL+C+LEFT   📄📄🡳`n..`n(2xHOLD)  ➠  CTRL+X+LEFT  ✂🡳`n.[4].`nX1+SCR  🡱 🡳  ➠  CTRL+Z/Y  🡷 🡵`n.[3].`n(x2)  ➠  CTRL+SHIFT+S  ✍`n..`n(2xHOLD)+SCR  🡱 🡳  ➠  SCR  🞀 ❘❙❚❙❘ 🞂", {ON: (!EkranWygaszony && PokazPodpowiedzi), MargPoz: 2}), MouseCtrlLib.AktywujTrybKola((*) => Send("{WheelUp}"), (*) => Send("{WheelDown}"), (*) => Send("{Ctrl Down}"), (*) => Send("{Ctrl Up}"), () => SilnikGUI.CustomTooltip(""), "XButton2"), SilnikGUI.CustomTooltip("")),
         (*) => SendEvent("^a"),
-            (*) => (SilnikGUI.CustomTooltip("SCROLL  🡱 🡳  ➠  SCROLL  🞀 ❘❙❚❙❘ 🞂", {ON: (!EkranWygaszony && PokazPodpowiedzi)}), MouseCtrlLib.AktywujTrybKola((*) => (SendLevel(1), SendEvent("{WheelLeft}")), (*) => (SendLevel(1), SendEvent("{WheelRight}")), 0, 0, () => SilnikGUI.CustomTooltip(""), "XButton2"), SilnikGUI.CustomTooltip("")),
+            (*) => (SilnikGUI.CustomTooltip("SCR  🡱 🡳  ➠  SCR  🞀 ❘❙❚❙❘ 🞂", {ON: (!EkranWygaszony && PokazPodpowiedzi)}), MouseCtrlLib.AktywujTrybKola((*) => (SendLevel(1), SendEvent("{WheelLeft}")), (*) => (SendLevel(1), SendEvent("{WheelRight}")), 0, 0, () => SilnikGUI.CustomTooltip(""), "XButton2"), SilnikGUI.CustomTooltip("")),
         HoldThreshold
     )
 }
@@ -1271,7 +1314,7 @@ myCustomX2RButton(*) {
 }
 
 myCustomX2X1(*) {
-    SilnikGUI.CustomTooltip("SCROLL  🡱 🡳  ➠  CTRL+Z/Y  🡷 🡵", {ON: (!EkranWygaszony && PokazPodpowiedzi)})
+    SilnikGUI.CustomTooltip("SCR  🡱 🡳  ➠  CTRL+Z/Y  🡷 🡵", {ON: (!EkranWygaszony && PokazPodpowiedzi)})
     MouseCtrlLib.AktywujTrybKola((*) => Send("^z"), (*) => Send("^y"), 0, 0, () => SilnikGUI.CustomTooltip(""), "xbutton2")
 }
 
@@ -1309,7 +1352,7 @@ CzyNadZablokowanymElementem() {
 
 ; Funkcja pomocnicza dla AkcjaRButton, wywoływana przy przytrzymaniu
 _AkcjaRButton_Hold() {
-    PokazDymek := () => !PokazPodpowiedzi ? (SilnikGUI.CustomTooltip(PobierzStatusAudio(), {ON: !EkranWygaszony, czas: 1500})) : SilnikGUI.CustomTooltip("SHIFT  🡱`n..`n" . ((CurrentProfile = 1 or (CurrentProfile = 0 and CustomActive))? "X1  ➠  Alt+Tab`nX2  ➠  Shift+Alt+Tab`n..`n(2xHOLD)SCROLL / X2, X2  ➠  Ctrl(+Shift)+Tab`n..`n" : "LEFT  ➠  Alt+Tab`n..`n(2xHOLD)+SCROLL  🡱 🡳  ➠  ARROWS / H-SCROLL`n..`n") . "2X  ➠  f11`n..`nSCROLL  🡱 🡳  ➠  VOLUME(+/-)`nMIDDLE  ➠  MUTE  🔉X`n.[2].`n" . PobierzStatusAudio(), {ON: !EkranWygaszony}) 
+    PokazDymek := () => !PokazPodpowiedzi ? (SilnikGUI.CustomTooltip(PobierzStatusAudio(), {ON: !EkranWygaszony, czas: 1500})) : SilnikGUI.CustomTooltip("SHIFT  🡱`n..`n" . ((CurrentProfile = 1 or (CurrentProfile = 0 and CustomActive))? "X1  ➠  Alt+Tab`nX2  ➠  Shift+Alt+Tab`n..`n(2xHOLD)SCR / X2, X2  ➠  Ctrl(+Shift)+Tab`n..`n" : "LEFT  ➠  Alt+Tab`n..`n(2xHOLD)+SCR  🡱 🡳  ➠  " . ["ARR 🡰 🡲 / SCR 🞀 ❘❙❚❙❘ 🞂 / ARR 🡱 🡳", "SCR 🞀 ❘❙❚❙❘ 🞂 / ARR 🡱 🡳 / ARR 🡰 🡲", "ARR 🡱 🡳 / ARR 🡰 🡲 / SCR 🞀 ❘❙❚❙❘ 🞂"][myHScrollActive + 1] . "`n..`n") . "2X  ➠  f11`n..`nSCR  🡱 🡳  ➠  VOLUME(+/-)`nMIDDLE  ➠  MUTE  🔉X`n.[2].`n" . PobierzStatusAudio(), {ON: !EkranWygaszony}) 
     CzyscDymek := (*) => SilnikGUI.CustomTooltip()
 
     ; Timer dymka
@@ -1352,7 +1395,7 @@ _AkcjaRButton_DoubleHold() {
         return
     }
 
-    PokazDymek := () => !PokazPodpowiedzi ? (SilnikGUI.CustomTooltip(PobierzStatusAudio(), {ON: !EkranWygaszony, czas: 1500})) : SilnikGUI.CustomTooltip("CTRL  ✲`n..`nSCROLL 🡳 / X1  ➠  Ctrl+Tab`nSCROLL 🡱 / X2  ➠  Ctrl+Shift+Tab", {ON: !EkranWygaszony}) 
+    PokazDymek := () => !PokazPodpowiedzi ? (SilnikGUI.CustomTooltip(PobierzStatusAudio(), {ON: !EkranWygaszony, czas: 1500})) : SilnikGUI.CustomTooltip("CTRL  ✲`n..`nSCR 🡳 / X1  ➠  Ctrl+Tab`nSCR 🡱 / X2  ➠  Ctrl+Shift+Tab", {ON: !EkranWygaszony}) 
     CzyscDymek := (*) => SilnikGUI.CustomTooltip()
 
     SetTimer(PokazDymek, -Round(HoldThreshold * 1000))
