@@ -123,8 +123,8 @@ class DaneGlobalne {
         global HoldThreshold       := Float(myRead("HoldThreshold", 0.15))
         global myLowerBrightness   := Number(myRead("LowerBrightness", 0))
         global ListaProfili        := ["AUTO (Detect)", "Custom Mouse + Keyboard", "Standard Mouse + Keyboard", "Keyboard Only", "OFF Mode"]
-        global myHScrollActive     := Number(myRead("LastHScroll", 0))
-        global myCustomVerticalArrows := Number(myRead("LastCustomVerticalArrows", 0))
+        global myScrToHVArrSwitch     := Number(myRead("LastHScroll", 0))
+        global myScrToHVArrVScr3Switch := Number(myRead("LastCustomVerticalArrows", 0))
 
         if FileExist(A_ScriptDir . "\mouse_ctrl.ico")
             TraySetIcon(A_ScriptDir . "\mouse_ctrl.ico")
@@ -177,7 +177,7 @@ A_TrayMenu.Add()
 for i, nazwa in ListaProfili
     A_TrayMenu.Add(nazwa, ((idx, *) => UstawProfil(idx)).Bind(i-1))
 A_TrayMenu.Add() 
-A_TrayMenu.Add("Unlock Keys (Ctrl+Alt+R)", (*) => AwaryjneOdblokowanie())
+A_TrayMenu.Add("Unlock Keys (Ctrl+Alt+R)", (*) => myEmergencyUnlock())
 A_TrayMenu.Add("Exit", (*) => ExitApp())
 
 OnMessage(WM_COPYDATA, myOnHardwareStateReady)
@@ -302,8 +302,8 @@ myOnHardwareStateReady(wParam, lParam, msg, hwnd) {
 ZapiszStanSprzetowy(ExitReason, ExitCode) {
     IniWrite(CustomActive, IniPath, "Settings", "LastCustomActive")
     IniWrite(currentBrightness, IniPath, "Settings", "LastBrightness")
-    IniWrite(myHScrollActive, IniPath, "Settings", "LastHScroll")
-    IniWrite(myCustomVerticalArrows, IniPath, "Settings", "LastCustomVerticalArrows")
+    IniWrite(myScrToHVArrSwitch, IniPath, "Settings", "LastHScroll")
+    IniWrite(myScrToHVArrVScr3Switch, IniPath, "Settings", "LastCustomVerticalArrows")
     myFetchHardwareState(4)
 }
 
@@ -879,8 +879,8 @@ TrescLegendy(profil, CustomState) {
     
     ; Definicje tekstów
     txtKlawiatura := "Ctrl+Alt+R = Unlock keys`nCtrl+Alt+P = Screenshot`nCtrl+F1/F2 = Brightness`nCtrl+F12 = Change profile`nShift + `` = ~"
-    txtCustom    := "Right(Hold) = Shift`nRight + Wheel = Volume`nRight + Middle = Mute`nRight + X1 = Alt+Tab`nRight + X2 = Shift+Alt+Tab`nRight(2x) = F11`nX1 + Wheel = Brightness`nX1 + Middle = Screen off`nX1(2x) = Esc`nX1(2xHold) + Wheel = ARR " . (myCustomVerticalArrows ? "🡱 🡳 / 🡰 🡲" : "🡰 🡲 / 🡱 🡳") . " (LClick)`nX2(Hold) = Ctrl`nX2(Hold) + Wheel = Zoom 🔍`nX2 + Left(2x) = Ctrl+V`nX2 + Left(2xHold) = LClick+Ctrl+V`nX2 + Right = Ctrl+C`nX2 + Right(Hold) = Ctrl+X`nX2 + Right(2x) = LClick+Ctrl+C`nX2 + Right(2xHold) = LClick+Ctrl+X`nX2 + X1 + Wheel = Ctrl+Z/Y`nX2(2x) = Ctrl+Shift+S`nX2(2xHold) + Wheel = Horiz. SCR"
-    txtStandard   := "Right(Hold) = Shift`nRight + Wheel = Volume`nRight + Middle = Mute`nRight + Left = Alt+Tab`nRight(2x) = F11`nRight(2xHold) + Wheel = " . ["ARR 🡰 🡲 / SCR 🞀 ❘❙❚❙❘ 🞂 / ARR 🡱 🡳", "SCR 🞀 ❘❙❚❙❘ 🞂 / ARR 🡱 🡳 / ARR 🡰 🡲", "ARR 🡱 🡳 / ARR 🡰 🡲 / SCR 🞀 ❘❙❚❙❘ 🞂"][myHScrollActive + 1] . " (Toggle LClick)`nLeft + Wheel = Brightness`nLeft + Middle = Screen off`nLeft + Right = Alt+Tab"
+    txtCustom    := "Right(Hold) = Shift`nRight + Wheel = Volume`nRight + Middle = Mute`nRight + X1 = Alt+Tab`nRight + X2 = Shift+Alt+Tab`nRight(2x) = F11`nX1 + Wheel = Brightness`nX1 + Middle = Screen off`nX1(2x) = Esc`nX1(2xHold) + Wheel = ARR " . (myScrToHVArrVScr3Switch ? "🡱 🡳 / 🡰 🡲" : "🡰 🡲 / 🡱 🡳") . " (LClick)`nX2(Hold) = Ctrl`nX2(Hold) + Wheel = Zoom 🔍`nX2 + Left(2x) = Ctrl+V`nX2 + Left(2xHold) = LClick+Ctrl+V`nX2 + Right = Ctrl+C`nX2 + Right(Hold) = Ctrl+X`nX2 + Right(2x) = LClick+Ctrl+C`nX2 + Right(2xHold) = LClick+Ctrl+X`nX2 + X1 + Wheel = Ctrl+Z/Y`nX2(2x) = Ctrl+Shift+S`nX2(2xHold) + Wheel = Horiz. SCR"
+    txtStandard   := "Right(Hold) = Shift`nRight + Wheel = Volume`nRight + Middle = Mute`nRight + Left = Alt+Tab`nRight(2x) = F11`nRight(2xHold) + Wheel = " . ["ARR 🡰 🡲 / SCR 🞀 ❘❙❚❙❘ 🞂 / ARR 🡱 🡳", "SCR 🞀 ❘❙❚❙❘ 🞂 / ARR 🡱 🡳 / ARR 🡰 🡲", "ARR 🡱 🡳 / ARR 🡰 🡲 / SCR 🞀 ❘❙❚❙❘ 🞂"][myScrToHVArrSwitch + 1] . " (Toggle LClick)`nLeft + Wheel = Brightness`nLeft + Middle = Screen off`nLeft + Right = Alt+Tab"
 
     ; Wartości domyślne
     dane.Header     := (profil == 0) ? "AUTO" : ((profil == 4) ? "" : "MANUAL")
@@ -1144,7 +1144,7 @@ myBindLateHotkeys() {
 
     ; --- GŁÓWNE ---
     HotIf()
-    Hotkey("^!r", (*) => AwaryjneOdblokowanie(), "On")
+Hotkey("^!r", (*) => myEmergencyUnlock(), "On")
     Hotkey("^F12", myToggleProfile, "On")
 
     ; --- KILL-TIP ---
@@ -1203,11 +1203,11 @@ myLegendaLButton(*) {
 }
 
 arrowFocusNav(button:="XButton1", togle:="*MButton") {
-    myUpdateTooltip() => SilnikGUI.CustomTooltip("SCR  🡱 🡳   ➠   ARR  " (myCustomVerticalArrows ? "🡱 🡳" : "🡰 🡲") "`n.[2].`nMCLICK  ➠  TOGGLE", {ON: (!EkranWygaszony && PokazPodpowiedzi), DelayON: 100})
+    myUpdateTooltip() => SilnikGUI.CustomTooltip("SCR  🡱 🡳   ➠   ARR  " (myScrToHVArrVScr3Switch ? "🡱 🡳" : "🡰 🡲") "`n.[2].`nMCLICK  ➠  TOGGLE", {ON: (!EkranWygaszony && PokazPodpowiedzi), DelayON: 100})
     
     myToggleState(*) {
-        global myCustomVerticalArrows
-        myCustomVerticalArrows := !myCustomVerticalArrows
+        global myScrToHVArrVScr3Switch
+        myScrToHVArrVScr3Switch := !myScrToHVArrVScr3Switch
         myUpdateTooltip()
     }
     
@@ -1222,8 +1222,8 @@ arrowFocusNav(button:="XButton1", togle:="*MButton") {
         SilnikGUI.CustomTooltip("")
     }
     
-    myWheelUp(*) => myCustomVerticalArrows ? SendEvent("{Up}") : SendEvent("{Left}")
-    myWheelDown(*) => myCustomVerticalArrows ? SendEvent("{Down}") : SendEvent("{Right}")
+    myWheelUp(*) => myScrToHVArrVScr3Switch ? SendEvent("{Up}") : SendEvent("{Left}")
+    myWheelDown(*) => myScrToHVArrVScr3Switch ? SendEvent("{Down}") : SendEvent("{Right}")
     
     MouseCtrlLib.AktywujTrybKola(myWheelUp, myWheelDown, myOnStart, myOnStop, () => SilnikGUI.CustomTooltip(""), button)
 }
@@ -1236,11 +1236,11 @@ global myNavState := { AltActive: false, CtrlActive: false }
 myStandardScrollMode(button := "RButton", togle := "*LButton") {
     global myStandardProxyActive
     
-    myUpdateTooltip() => SilnikGUI.CustomTooltip("SCR  🡱 🡳   ➠   " . ["ARR  🡰 🡲", "SCR  🞀 ❘❙❚❙❘ 🞂", "ARR  🡱 🡳"][myHScrollActive + 1] . "`n.[2].`nMCLICK  ➠  TOGGLE`n.[3].`nLCLICK  ➠  CTRL+TAB", {ON: (!EkranWygaszony && PokazPodpowiedzi), DelayON: 100})
+    myUpdateTooltip() => SilnikGUI.CustomTooltip("SCR  🡱 🡳   ➠   " . ["ARR  🡰 🡲", "SCR  🞀 ❘❙❚❙❘ 🞂", "ARR  🡱 🡳"][myScrToHVArrSwitch + 1] . "`n.[2].`nMCLICK  ➠  TOGGLE`n.[3].`nLCLICK  ➠  CTRL+TAB", {ON: (!EkranWygaszony && PokazPodpowiedzi), DelayON: 100})
     
     myToggleState(*) {
-        global myHScrollActive
-        myHScrollActive := Mod(myHScrollActive + 1, 3)
+        global myScrToHVArrSwitch
+        myScrToHVArrSwitch := Mod(myScrToHVArrSwitch + 1, 3)
         myUpdateTooltip()
     }
     
@@ -1258,18 +1258,18 @@ myStandardScrollMode(button := "RButton", togle := "*LButton") {
     }
     
     myWheelUp(*) {
-        if (myHScrollActive == 1) {
+        if (myScrToHVArrSwitch == 1) {
             SendLevel(1)
             return SendEvent("{WheelLeft}")
         }
-        SendEvent((myHScrollActive == 2) ? "{Up}" : "{Left}")
+        SendEvent((myScrToHVArrSwitch == 2) ? "{Up}" : "{Left}")
     }
     myWheelDown(*) {
-        if (myHScrollActive == 1) {
+        if (myScrToHVArrSwitch == 1) {
             SendLevel(1)
             return SendEvent("{WheelRight}")
         }
-        SendEvent((myHScrollActive == 2) ? "{Down}" : "{Right}")
+        SendEvent((myScrToHVArrSwitch == 2) ? "{Down}" : "{Right}")
     }
     
     MouseCtrlLib.AktywujTrybKola(myWheelUp, myWheelDown, myOnStart, myOnStop, () => SilnikGUI.CustomTooltip(""), button)
@@ -1278,7 +1278,7 @@ myStandardScrollMode(button := "RButton", togle := "*LButton") {
 myCustomXButton1(*) {
     Multiklik("XButton1", 
         (*) => Send("{XButton1}"),
-        (*) => (!PokazPodpowiedzi ? (SilnikGUI.CustomTooltip("Brightness: " . currentBrightness . "%  ◑", {ON: !EkranWygaszony, czas: 1500})) : (SilnikGUI.CustomTooltip("SCR  ➠  BRIGHTNESS  ◑`n..`nMIDDLE  ➠  SCREEN OFF  💻`n.[2].`n(x2)  ➠  ESC  🡰`n..`n(2xHOLD)+SCR  🡱 🡳  ➠  ARR  " . (myCustomVerticalArrows ? "🡱 🡳 / 🡰 🡲" : "🡰 🡲 / 🡱 🡳") . "`n.[2].`nBrightness: " . currentBrightness . "%  ◑", {ON: !EkranWygaszony, MargPoz: 4})), MouseCtrlLib.AktywujTrybKola((*) => ZmianaJasnosci(BrightnessStepMouse), (*) => ZmianaJasnosci(-BrightnessStepMouse),(*) => Hotkey("*RButton", (*) => (UsunTip(), WygasEkran("XButton1")), "On"), (*) => Hotkey("*RButton", (*) => AkcjaRButton(), "On"), 0, "XButton1"), SilnikGUI.CustomTooltip("")),
+        (*) => (!PokazPodpowiedzi ? (SilnikGUI.CustomTooltip("Brightness: " . currentBrightness . "%  ◑", {ON: !EkranWygaszony, czas: 1500})) : (SilnikGUI.CustomTooltip("SCR  ➠  BRIGHTNESS  ◑`n..`nRIGHT  ➠  SCREEN OFF  💻`n.[2].`n(x2)  ➠  ESC  🡰`n..`n(2xHOLD)+SCR  🡱 🡳  ➠  ARR  " . (myScrToHVArrVScr3Switch ? "🡱 🡳 / 🡰 🡲" : "🡰 🡲 / 🡱 🡳") . "`n.[2].`nBrightness: " . currentBrightness . "%  ◑", {ON: !EkranWygaszony, MargPoz: 4})), MouseCtrlLib.AktywujTrybKola((*) => ZmianaJasnosci(BrightnessStepMouse), (*) => ZmianaJasnosci(-BrightnessStepMouse),(*) => Hotkey("*RButton", (*) => (UsunTip(), WygasEkran("XButton1")), "On"), (*) => Hotkey("*RButton", (*) => AkcjaRButton(), "On"), 0, "XButton1"), SilnikGUI.CustomTooltip("")),
         (*) => SendEvent("{Escape}"),
         (*) => arrowFocusNav(),
         HoldThreshold
@@ -1352,7 +1352,7 @@ CzyNadZablokowanymElementem() {
 
 ; Funkcja pomocnicza dla AkcjaRButton, wywoływana przy przytrzymaniu
 _AkcjaRButton_Hold() {
-    PokazDymek := () => !PokazPodpowiedzi ? (SilnikGUI.CustomTooltip(PobierzStatusAudio(), {ON: !EkranWygaszony, czas: 1500})) : SilnikGUI.CustomTooltip("SHIFT  🡱`n..`n" . ((CurrentProfile = 1 or (CurrentProfile = 0 and CustomActive))? "X1  ➠  Alt+Tab`nX2  ➠  Shift+Alt+Tab`n..`n(2xHOLD)SCR / X2, X2  ➠  Ctrl(+Shift)+Tab`n..`n" : "LEFT  ➠  Alt+Tab`n..`n(2xHOLD)+SCR  🡱 🡳  ➠  " . ["ARR 🡰 🡲 / SCR 🞀 ❘❙❚❙❘ 🞂 / ARR 🡱 🡳", "SCR 🞀 ❘❙❚❙❘ 🞂 / ARR 🡱 🡳 / ARR 🡰 🡲", "ARR 🡱 🡳 / ARR 🡰 🡲 / SCR 🞀 ❘❙❚❙❘ 🞂"][myHScrollActive + 1] . "`n..`n") . "2X  ➠  f11`n..`nSCR  🡱 🡳  ➠  VOLUME(+/-)`nMIDDLE  ➠  MUTE  🔉X`n.[2].`n" . PobierzStatusAudio(), {ON: !EkranWygaszony}) 
+    PokazDymek := () => !PokazPodpowiedzi ? (SilnikGUI.CustomTooltip(PobierzStatusAudio(), {ON: !EkranWygaszony, czas: 1500})) : SilnikGUI.CustomTooltip("SHIFT  🡱`n..`n" . ((CurrentProfile = 1 or (CurrentProfile = 0 and CustomActive))? "X1  ➠  Alt+Tab`nX2  ➠  Shift+Alt+Tab`n..`n(2xHOLD)SCR / X2, X2  ➠  Ctrl(+Shift)+Tab`n..`n" : "LEFT  ➠  Alt+Tab`n..`n(2xHOLD)+SCR  🡱 🡳  ➠  " . ["ARR 🡰 🡲 / SCR 🞀 ❘❙❚❙❘ 🞂 / ARR 🡱 🡳", "SCR 🞀 ❘❙❚❙❘ 🞂 / ARR 🡱 🡳 / ARR 🡰 🡲", "ARR 🡱 🡳 / ARR 🡰 🡲 / SCR 🞀 ❘❙❚❙❘ 🞂"][myScrToHVArrSwitch + 1] . "`n..`n") . "2X  ➠  f11`n..`nSCR  🡱 🡳  ➠  VOLUME(+/-)`nMIDDLE  ➠  MUTE  🔉X`n.[2].`n" . PobierzStatusAudio(), {ON: !EkranWygaszony}) 
     CzyscDymek := (*) => SilnikGUI.CustomTooltip()
 
     ; Timer dymka
@@ -1434,15 +1434,29 @@ UstawFocusPodMysz() {
     try UIA.ElementFromPoint().SetFocus()
 }
 
-; Awaryjny zrzut zablokowanych klawiszy logicznych
-AwaryjneOdblokowanie() {
-    klawisze := ["LButton", "RButton", "MButton", "XButton1", "XButton2", "LCtrl", "RCtrl", "LAlt", "RAlt", "LShift", "RShift"]
-    sekwencja := ""
-    for k in klawisze
-        if GetKeyState(k)
-            sekwencja .= "{" k " Up}"
-    if (sekwencja != "")
-        Send("{Blind}" sekwencja)
+/** Emergency release of stuck logical keys. */
+myEmergencyUnlock() {
+    global myNavState, myStandardProxyActive
+    
+    myMouseKeys := ["LButton", "RButton", "MButton", "XButton1", "XButton2"]
+    myKbdKeys := ["LCtrl", "RCtrl", "LAlt", "RAlt", "LShift", "RShift", "LWin", "RWin"]
+    myReleaseSeq := ""
+    
+    for myKey in myMouseKeys {
+        if (GetKeyState(myKey) || GetKeyState(myKey, "P"))
+            myReleaseSeq .= "{" myKey " Up}"
+    }
+    
+    for myKey in myKbdKeys {
+        myReleaseSeq .= "{" myKey " Up}"
+    }
+    
+    Send("{Blind}{vkE8}" myReleaseSeq)
+    
+    myNavState.AltActive := false
+    myNavState.CtrlActive := false
+    myStandardProxyActive := false
+    
     SilnikGUI.CustomTooltip("KEYS`nUNLOCKED", {Transparent: 0.2, trybPozycji:"Screen",Align:"UP+20",czas: 2000,rozmiarCzcionki: 25})
 }
 
