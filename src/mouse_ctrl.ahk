@@ -1,4 +1,4 @@
-#Requires AutoHotkey v2.0
+﻿#Requires AutoHotkey v2.0
 ;@Ahk2Exe-SetMainIcon mouse_ctrl.ico
 ;@Ahk2Exe-SetCompanyName AbsurdianVibe
 ;@Ahk2Exe-SetDescription Mouse Control
