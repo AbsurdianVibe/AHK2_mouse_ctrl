@@ -58,6 +58,10 @@ global WM_COPYDATA := 0x004A
 global myWmiNamespace := "winmgmts:\\.\root\WMI"
 ; #endregion
 
+; #region --- FOCUS SINK ---
+global myFocusSinkGui := Gui("+ToolWindow -Caption +AlwaysOnTop")
+myFocusSinkGui.Show("Hide x-10000 y-10000 w10 h10 NA")
+; #endregion
 ; #region --- SPRAWDZANIE UPRAWNIEŃ ---
 ; TODO: Fix skalowania (refaktor legendy do silnika)
 
@@ -691,7 +695,7 @@ PokazListeSkrotow(*) {
     SzerkokośćOknaLegendy := WymiaryLegendy.Total
 
     ; 3. Inicjalizacja GUI
-    global LegendaInstancja := SilnikGUI("Mouse Control LEGEND", "", { CSBarH: 1, unikalny: 1, pokazPasek: 0, AlwaysOnTop: 1, resizeMarg: 0, PadD: 0, PadL: 0, PadR: 0, PadU: 0, createChild: true }) ; CSBarH: 0 kamufluje bug z nadgorliwymi paskami
+    global LegendaInstancja := SilnikGUI("Mouse Control LEGEND", "+ToolWindow", { CSBarH: 1, unikalny: 1, pokazPasek: 0, AlwaysOnTop: 1, resizeMarg: 0, PadD: 0, PadL: 0, PadR: 0, PadU: 0, createChild: true }) ; CSBarH: 0 kamufluje bug z nadgorliwymi paskami
     LegendaGui := LegendaInstancja.GuiObj
     childGuiObj := LegendaInstancja.Stan.ChildGui
 
@@ -721,14 +725,19 @@ PokazListeSkrotow(*) {
 
     ; Stopka
     childGuiObj.SetFont("s13 bold")
-    GuiControls.BtnSettings := LegendaInstancja.DodajPrzycisk("Settings (F1)", (*) => (PokazUstawienia(), LegendaGui.Hide()), "w140 h30 Center")
+    GuiControls.BtnSettings := LegendaInstancja.DodajPrzycisk("Settings (F1)", (*) => (PokazUstawienia(), myZamknijLegende()), "w140 h30 Center")
 
     childGuiObj.SetFont("s9", "Segoe UI")
     GuiControls.Exit := childGuiObj.Add("Text", "Center x0 c" . KolorNieaktywny, "(Click this window to close)")
-    GuiControls.Exit.OnEvent("Click", (*) => LegendaGui.Hide())
+    GuiControls.Exit.OnEvent("Click", (*) => myZamknijLegende())
 
     AktualizujListe()
     UsunTip()
+}
+
+myZamknijLegende(*) {
+    try WinActivate(myFocusSinkGui.Hwnd) ; Twarda aktywacja niewidocznego okna usuwa flagę Foreground z Legendy
+    LegendaGui.Hide()
 }
 
 AktualizujListe() {
@@ -784,7 +793,8 @@ AktualizujListe() {
     ; 3. Finalizacja
     wysokosc_okna := y_exit + hExit + 10
     UsunTip()
-    LegendaInstancja.Pokaz("w" . SzerkokośćOknaLegendy . " h" . wysokosc_okna . " Center")
+    LegendaInstancja.Pokaz("w" . SzerkokośćOknaLegendy . " h" . wysokosc_okna . " Center NA")
+    WinActivate(LegendaInstancja.GuiObj.Hwnd)
 
     ; Wymuszenie czyszczenia brudnych warstw ChildGui z pozostawionych duchów
     WinRedraw(LegendaInstancja.Stan.ChildGui.Hwnd)
@@ -1119,12 +1129,12 @@ myBindLateHotkeys() {
     Hotkey("WheelDown", myLegendaWheelDown, "On")
     Hotkey("WheelUp", myLegendaWheelUp, "On")
     Hotkey("~LButton", myLegendaLButton, "On")
-    Hotkey("~Esc", (*) => LegendaGui.Hide(), "On")
-    Hotkey("~MButton", (*) => LegendaGui.Hide(), "On")
-    Hotkey("~RButton", (*) => LegendaGui.Hide(), "On")
+    Hotkey("~Esc", (*) => myZamknijLegende(), "On")
+    Hotkey("~MButton", (*) => myZamknijLegende(), "On")
+    Hotkey("~RButton", (*) => myZamknijLegende(), "On")
 
     HotIf((*) => LegendaIstnieje() && DllCall("IsWindowVisible", "Ptr", LegendaGui.Hwnd) && WinGetMinMax("ahk_id " LegendaGui.hwnd) != -1)
-    Hotkey("F1", (*) => (PokazUstawienia(), LegendaGui.Hide()), "On")
+    Hotkey("F1", (*) => (PokazUstawienia(), myZamknijLegende()), "On")
 
     ; --- MYSZ Custom ---
     HotIf((*) => (CurrentProfile == 1 || (CurrentProfile == 0 && CustomActive)))
