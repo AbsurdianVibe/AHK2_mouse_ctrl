@@ -1,4 +1,4 @@
-﻿#Requires AutoHotkey v2.0
+#Requires AutoHotkey v2.0
 ;@Ahk2Exe-SetMainIcon mouse_ctrl.ico
 ;@Ahk2Exe-SetCompanyName AbsurdianVibe
 ;@Ahk2Exe-SetDescription Mouse Control
@@ -41,8 +41,8 @@ WinSetTitle("MouseCtrl_Main_Window", "ahk_id " A_ScriptHwnd)
 DllCall("User32\ChangeWindowMessageFilterEx", "Ptr", A_ScriptHwnd, "UInt", 0x0044, "UInt", 1, "Ptr", 0) ; Przepustka UIPI dla restartu (#SingleInstance)
 
 #Include "..\AHK2_external_code\UIA.ahk"
-; #Include "D:\PRACA\skrypryAHK\AHK2_Colorful_GUI\AHK2ColorfulGUI.ahk"
-#Include "..\AHK2_Colorful_GUI\AHK2ColorfulGUI.ahk"
+#Include "D:\PRACA\skrypryAHK\AHK2_Colorful_GUI\AHK2ColorfulGUI.ahk"
+; #Include "..\AHK2_Colorful_GUI\AHK2ColorfulGUI.ahk"
 #Include "mouse_ctrl_lib.ahk"
 #Include "..\AHK2_My_libs\MojeFunkcje.ahk"
 #Include "myHardwareWorker.ahk"
@@ -434,7 +434,6 @@ PokazUstawienia(*) {
     ShortcutExists := FileExist(ShortcutPath) ? 1 : 0
 
     GlUs := SilnikGUI("Mouse Control SETTINGS", "", { unikalny: 1, pokazPasek: 1, PadD: pad, PadR: pad, PadL: pad, ResizeMarg: 0 })
-
     if (!GlUs.nowaInstancja) {
         GlUs.Pokaz()
         return
@@ -692,46 +691,41 @@ PokazListeSkrotow(*) {
     SzerkokośćOknaLegendy := WymiaryLegendy.Total
 
     ; 3. Inicjalizacja GUI
-    LegendaGui := Gui("+AlwaysOnTop +Border -Caption", "Mouse Control LEGEND")
-    kolorTla := KolorMotywu
-    LegendaGui.BackColor := kolorTla
-    GruboscRamki := 2
-    GuiControls.RamkaTla := SilnikGUI.RysujObrys(LegendaGui, 0, 0, 0, 0, KolorRamki, GruboscRamki)
-
-    ; 4. Kontrolki (Pozycjonowanie w AktualizujListe)
+    global LegendaInstancja := SilnikGUI("Mouse Control LEGEND", "", { CSBarH: 1, unikalny: 1, pokazPasek: 0, AlwaysOnTop: 1, resizeMarg: 0, PadD: 0, PadL: 0, PadR: 0, PadU: 0, createChild: true }) ; CSBarH: 0 kamufluje bug z nadgorliwymi paskami
+    LegendaGui := LegendaInstancja.GuiObj
+    childGuiObj := LegendaInstancja.Stan.ChildGui
 
     ; --- Nagłówek i Profil ---
-    LegendaGui.SetFont("s15 bold " . KolorTekst, "Segoe UI")
-    GuiControls.UprawnieniaText := LegendaGui.Add("Text", "vUprawnieniaText +0x0100 Center x0 w" . SzerkokośćOknaLegendy, (A_IsAdmin ? "ADMIN" : "REGULAR"))
+    childGuiObj.SetFont("s15 bold " . KolorTekst, "Segoe UI")
+    GuiControls.UprawnieniaText := childGuiObj.Add("Text", "vUprawnieniaText +0x0100 Center x0 Background" . KolorMotywu . " w" . SzerkokośćOknaLegendy, (A_IsAdmin ? "ADMIN" : "REGULAR"))
 
-    LegendaGui.SetFont("s10 norm")
-    GuiControls.DDL := LegendaGui.Add("DropDownList", "x0 w" . szerListy . " Background" . KolorMotywu . " " . KolorTekst . " Choose" . (CurrentProfile + 1), ListaProfili)
-    GuiControls.DDL.OnEvent("Change", (ctrl, *) => UstawProfil(ctrl.Value - 1, false))
+    childGuiObj.SetFont("s10 norm")
+    GuiControls.DDL := LegendaInstancja.DDList(ListaProfili, (ctrl, *) => UstawProfil(ctrl.SelectedIndex - 1, false), CurrentProfile + 1, { w: szerListy, pos: "x0" })
 
     ; --- Nagłówki Sekcji ---
-    LegendaGui.SetFont("s15 bold")
-    GuiControls.Header := LegendaGui.Add("Text", "vAutoTryb +0x0100 Center x0 " . KolorTekst, "")
-    GuiControls.KlawHeader := LegendaGui.Add("Text", "vNaglowekKlawiatury +0x0100 Center x0 " . KolorTekst, "")
-    GuiControls.MyszHeader := LegendaGui.Add("Text", "Center x0 " . KolorTekst, "")
+    childGuiObj.SetFont("s15 bold")
+    GuiControls.Header := childGuiObj.Add("Text", "vAutoTryb +0x0100 Center x0 Background" . KolorMotywu . " " . KolorTekst, "")
+    GuiControls.KlawHeader := childGuiObj.Add("Text", "vNaglowekKlawiatury +0x0100 Center x0 Background" . KolorMotywu . " " . KolorTekst, "")
+    GuiControls.MyszHeader := childGuiObj.Add("Text", "Center x0 Background" . KolorMotywu . " " . KolorTekst, "")
 
     ; --- Treść (Kolumny) ---
-    LegendaGui.SetFont("s13 w100")
+    childGuiObj.SetFont("s13 w100")
     ; Sekcja Klawiatury
-    GuiControls.KlawTextL := LegendaGui.Add("Text", "vListaLKlawiatury +0x0100 Right x0 " . KolorTekst, "")
-    GuiControls.KlawTextR := LegendaGui.Add("Text", "vListaRKlawiatury +0x0100 Left x+0 " . KolorTekst, "")
-    GuiControls.KlawTextCenter := LegendaGui.Add("Text", "Center x0 c" . KolorNieaktywny . " Hidden", "")
+    GuiControls.KlawTextL := childGuiObj.Add("Text", "vListaLKlawiatury +0x0100 Right x0 Background" . KolorMotywu . " " . KolorTekst, "")
+    GuiControls.KlawTextR := childGuiObj.Add("Text", "vListaRKlawiatury +0x0100 Left x+0 Background" . KolorMotywu . " " . KolorTekst, "")
+    GuiControls.KlawTextCenter := childGuiObj.Add("Text", "Center x0 Background" . KolorMotywu . " c" . KolorNieaktywny, "")
     ; Mysz
-    GuiControls.MyszTextL := LegendaGui.Add("Text", "Right x0 " . KolorTekst, "")
-    GuiControls.MyszTextR := LegendaGui.Add("Text", "Left x+0 " . KolorTekst, "")
-    GuiControls.MyszTextCenter := LegendaGui.Add("Text", "Center x0 c" . KolorNieaktywny . " Hidden", "")
+    GuiControls.MyszTextL := childGuiObj.Add("Text", "Right x0 Background" . KolorMotywu . " " . KolorTekst, "")
+    GuiControls.MyszTextR := childGuiObj.Add("Text", "Left x+0 Background" . KolorMotywu . " " . KolorTekst, "")
+    GuiControls.MyszTextCenter := childGuiObj.Add("Text", "Center x0 Background" . KolorMotywu . " c" . KolorNieaktywny, "")
 
     ; Stopka
-    LegendaGui.SetFont("s13 bold")
-    GuiControls.BtnSettings := LegendaGui.Add("Text", "w140 h30 Center Background" . KolorPrzycisku . " " . KolorTekst . " +Border +0x0200", "Settings (F1)")
-    GuiControls.BtnSettings.OnEvent("Click", (*) => (PokazUstawienia(), LegendaGui.Hide()))
+    childGuiObj.SetFont("s13 bold")
+    GuiControls.BtnSettings := LegendaInstancja.DodajPrzycisk("Settings (F1)", (*) => (PokazUstawienia(), LegendaGui.Hide()), "w140 h30 Center")
 
-    LegendaGui.SetFont("s9", "Segoe UI")
-    GuiControls.Exit := LegendaGui.Add("Text", "Center x0 c" . KolorNieaktywny, "(Click this window to close)")
+    childGuiObj.SetFont("s9", "Segoe UI")
+    GuiControls.Exit := childGuiObj.Add("Text", "Center x0 c" . KolorNieaktywny, "(Click this window to close)")
+    GuiControls.Exit.OnEvent("Click", (*) => LegendaGui.Hide())
 
     AktualizujListe()
     UsunTip()
@@ -740,7 +734,13 @@ PokazListeSkrotow(*) {
 AktualizujListe() {
     global CurrentProfile, GuiControls, CustomActive, SzerkokośćOknaLegendy, LegendaGui, WymiaryLegendy, GruboscRamki
 
-    try GuiControls.DDL.Choose(CurrentProfile + 1)
+    try {
+        ctrlDDL := GuiControls.DDL.Ctrls[1]
+        ctrlDDL.SelectedIndex := CurrentProfile + 1
+        nowaWartosc := ctrlDDL.Opcje[CurrentProfile + 1]
+        ctrlDDL.Value := nowaWartosc
+        ControlSetText(nowaWartosc, ctrlDDL.Hwnd)
+    }
 
     ; 1. Dane i wymiary
     dane := TrescLegendy(CurrentProfile, CustomActive)
@@ -759,18 +759,22 @@ AktualizujListe() {
 
     y_curr := 10 + hUpr + 10
     GuiControls.DDL.Move((SzerkokośćOknaLegendy - szerListy) / 2, y_curr)
-    GuiControls.DDL.Redraw()
+    try GuiControls.DDL.Redraw()
     GuiControls.DDL.GetPos(, , , &hDDL)
     y_curr += hDDL + 10
 
     ; B. Sekcje
     y_curr := OdswiezNaglowek(y_curr, GuiControls.Header, dane.Header, WymiaryLegendy.wMainHead)
-    y_curr := OdswiezSekcje(y_curr, GuiControls.KlawHeader, GuiControls.KlawTextL, GuiControls.KlawTextR, GuiControls.KlawTextCenter, dane.KlawHeader, dane.KlawText, dane.KlawKolor, WymiaryLegendy.KL, WymiaryLegendy.KR, WymiaryLegendy.KS, WymiaryLegendy.hK, start_x_klaw, WymiaryLegendy.wHeadK)
-    y_curr := OdswiezSekcje(y_curr, GuiControls.MyszHeader, GuiControls.MyszTextL, GuiControls.MyszTextR, GuiControls.MyszTextCenter, dane.MyszHeader, dane.MyszText, dane.MyszKolor, WymiaryLegendy.ML, WymiaryLegendy.MR, WymiaryLegendy.MS, WymiaryLegendy.hM, start_x_mysz, WymiaryLegendy.wHeadM)
+    y_curr := OdswiezNaglowek(y_curr, GuiControls.KlawHeader, dane.KlawHeader, WymiaryLegendy.wHeadK)
+    y_curr := OdswiezSekcje(y_curr, dane.KlawText, GuiControls.KlawTextL, GuiControls.KlawTextR, GuiControls.KlawTextCenter, dane.KlawKolor, WymiaryLegendy.KL, WymiaryLegendy.KR, start_x_klaw, WymiaryLegendy.hK)
+    y_curr := OdswiezNaglowek(y_curr, GuiControls.MyszHeader, dane.MyszHeader, WymiaryLegendy.wHeadM)
+    y_curr := OdswiezSekcje(y_curr, dane.MyszText, GuiControls.MyszTextL, GuiControls.MyszTextR, GuiControls.MyszTextCenter, dane.MyszKolor, WymiaryLegendy.ML, WymiaryLegendy.MR, start_x_mysz, WymiaryLegendy.hM)
 
     ; C. Dół (Przyciski)
     GuiControls.BtnSettings.Move((SzerkokośćOknaLegendy - 140) / 2, y_curr)
-    GuiControls.BtnSettings.Redraw()
+    if (GuiControls.BtnSettings.HasProp("BackgroundCtrl")) {
+        GuiControls.BtnSettings.BackgroundCtrl.Move((SzerkokośćOknaLegendy - 140) / 2, y_curr, 140, 30)
+    }
 
     y_exit := y_curr + 30 + 10
     GuiControls.Exit.Move((SzerkokośćOknaLegendy - WymiaryLegendy.wExit) / 2, y_exit, WymiaryLegendy.wExit)
@@ -779,9 +783,12 @@ AktualizujListe() {
 
     ; 3. Finalizacja
     wysokosc_okna := y_exit + hExit + 10
-    GuiControls.RamkaTla.Move(0, 0, SzerkokośćOknaLegendy, wysokosc_okna)
     UsunTip()
-    LegendaGui.Show("w" . SzerkokośćOknaLegendy . " h" . wysokosc_okna . " Center NA")
+    LegendaInstancja.Pokaz("w" . SzerkokośćOknaLegendy . " h" . wysokosc_okna . " Center")
+
+    ; Wymuszenie czyszczenia brudnych warstw ChildGui z pozostawionych duchów
+    WinRedraw(LegendaInstancja.Stan.ChildGui.Hwnd)
+    SetTimer(ObjBindMethod(SilnikGUI, "GłównaPętlaStanu"), 15)
 }
 
 ; ============================================================================================================================================================
@@ -789,14 +796,15 @@ AktualizujListe() {
 ; ============================================================================================================================================================
 
 AktualizujSekcje(tekst, ctrlL, ctrlR, ctrlC, kolor) {
-    if (tekst = "Shortcuts disabled") {
-        ctrlL.Visible := false, ctrlR.Visible := false
-        ctrlC.Visible := true, ctrlC.Value := tekst
-        if (kolor != "")
-            ctrlC.SetFont(kolor)
+    global KolorWarn
+    if (tekst == "Shortcuts disabled") {
+        ctrlL.Value := "", ctrlR.Value := ""
+        ctrlC.Value := tekst
+        ctrlC.SetFont("c" . KolorWarn)
+    } else if (tekst == "") {
+        ctrlL.Value := "", ctrlR.Value := "", ctrlC.Value := ""
     } else {
-        ctrlL.Visible := true, ctrlR.Visible := true
-        ctrlC.Visible := false
+        ctrlC.Value := ""
         RozdzielNaKolumny(tekst, ctrlL, ctrlR, kolor)
     }
 }
@@ -823,51 +831,56 @@ RozdzielNaKolumny(tekst, ctrlL, ctrlR, kolor, separator := "=") {
 
 OdswiezNaglowek(yStart, cHead, txtHead, szerokosc) {
     global SzerkokośćOknaLegendy
-    cHead.Value := txtHead
-    cHead.GetPos(, , , &hHead)
+    hHead := 25
 
     if (txtHead == "") {
         hHead := 0
         marginHead := 0
-        cHead.Visible := false
-        startX := 0
+        cHead.Value := ""
+        cHead.Move(0, yStart, 1, 0)
     } else {
-        if (hHead < 10) hHead := 25
-            marginHead := 10
+        marginHead := 10
+        cHead.Value := txtHead
         cHead.Visible := true
         startX := (SzerkokośćOknaLegendy - szerokosc) / 2
+        cHead.Move(startX, yStart, szerokosc, hHead)
     }
-    cHead.Move(startX, yStart, szerokosc, hHead)
     cHead.Redraw()
     return yStart + hHead + marginHead
 }
 
-OdswiezSekcje(yStart, cHead, cL, cR, cC, txtHead, txtContent, kolor, wL, wR, wSingle, hContent, startX, szerokoscNaglowka) {
+OdswiezSekcje(yStart, txtContent, cL, cR, cC, kolor, wLeft, wRight, startX, hWymuszone) {
     global SzerkokośćOknaLegendy
-
-    ; 1. Treść i styl
-    cHead.Value := txtHead
-    cHead.SetFont(kolor)
     AktualizujSekcje(txtContent, cL, cR, cC, kolor)
 
-    ; 2. Pozycjonowanie nagłówka
-    yPoNaglowku := OdswiezNaglowek(yStart, cHead, txtHead, szerokoscNaglowka)
-
-    ; 3. Pozycjonowanie Treści
-    hRealContent := (txtContent == "") ? 0 : hContent
-    marginContent := (txtContent == "") ? 0 : 10
-
-    cL.Move(startX, yPoNaglowku, wL, hRealContent)
-    cR.Move(startX + wL, yPoNaglowku, wR, hRealContent)
-
-    if (txtContent == "Shortcuts disabled") {
-        cC.Move((SzerkokośćOknaLegendy - wSingle) / 2, yPoNaglowku, wSingle, hRealContent)
-    } else {
-        cC.Move(0, yPoNaglowku, SzerkokośćOknaLegendy, hRealContent)
+    hContent := 0
+    if (txtContent != "") {
+        hContent := hWymuszone
+        if (hContent < 25)
+            hContent := 25
     }
 
-    cL.Redraw(), cR.Redraw(), cC.Redraw()
-    return yPoNaglowku + hRealContent + marginContent
+    if (hContent == 0) {
+        cL.Move(startX, yStart, 1, 0)
+        cR.Move(startX, yStart, 1, 0)
+        cC.Move(startX, yStart, 1, 0)
+        return yStart
+    }
+
+    if (txtContent == "Shortcuts disabled") {
+        cC.Move(0, yStart, SzerkokośćOknaLegendy, hContent)
+        cC.Redraw()
+        cL.Move(startX, yStart, 1, hContent)
+        cR.Move(startX, yStart, 1, hContent)
+    } else {
+        cL.Move(startX, yStart, wLeft, hContent)
+        cR.Move(startX + wLeft, yStart, wRight, hContent)
+        cL.Redraw()
+        cR.Redraw()
+        cC.Move(startX, yStart, 1, hContent)
+    }
+
+    return yStart + hContent + 5
 }
 
 ; ============================================================================================================================================================
@@ -886,10 +899,10 @@ TrescLegendy(profil, CustomState) {
     dane.Header := (profil == 0) ? "AUTO" : ((profil == 4) ? "" : "MANUAL")
     dane.KlawHeader := (profil == 4) ? "ALL DISABLED" : "— KEYBOARD —"
     dane.KlawText := (profil == 4) ? "Shortcuts disabled" : txtKlawiatura
-    dane.KlawKolor := (profil == 4) ? "c" . KolorWarn : KolorTekst
-    dane.MyszHeader := [(CustomState ? "— Custom MOUSE —" : "— STANDARD MOUSE —"), "— Custom MOUSE —", "— STANDARD MOUSE —", "--- MOUSE ---", ""][profil + 1]
-    dane.MyszText := [(CustomState ? txtCustom : txtStandard), txtCustom, txtStandard, "Shortcuts disabled", ""][profil + 1]
-    dane.MyszKolor := (profil == 3) ? "c" . KolorNieaktywny : KolorTekst
+    dane.KlawKolor := KolorTekst
+    dane.MyszHeader := [(CustomState ? "— Custom MOUSE —" : "— STANDARD MOUSE —"), "— Custom MOUSE —", "— STANDARD MOUSE —", "— MOUSE —", "— MOUSE —"][profil + 1]
+    dane.MyszText := [(CustomState ? txtCustom : txtStandard), txtCustom, txtStandard, "Shortcuts disabled", "Shortcuts disabled"][profil + 1]
+    dane.MyszKolor := KolorTekst
     return dane
 }
 
@@ -1181,25 +1194,7 @@ myLegendaLButton(*) {
     LButtonStandardTip()
     if !LegendaIstnieje()
         return
-    try {
-        if SendMessage(0x0157, 0, 0, , "ahk_id " . GuiControls.DDL.Hwnd)
-            return
-    }
-    MouseGetPos(, , &idPodMysza, &hCtrl, 2)
-    try klasaOkna := WinGetClass("ahk_id " idPodMysza)
-    catch
-        klasaOkna := ""
 
-    if (klasaOkna == "ComboLBox")
-        return
-
-    if (idPodMysza == LegendaGui.Hwnd) {
-        if (hCtrl == GuiControls.DDL.Hwnd || hCtrl == GuiControls.BtnSettings.Hwnd)
-            return
-        LegendaGui.Hide()
-    } else {
-        LegendaGui.Hide()
-    }
 }
 
 arrowFocusNav(button := "XButton1", togle := "*MButton") {
