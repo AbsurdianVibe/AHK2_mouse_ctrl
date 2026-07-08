@@ -705,7 +705,7 @@ PokazListeSkrotow(*) {
     SzerkokośćOknaLegendy := WymiaryLegendy.Total
 
     ; 3. Inicjalizacja GUI
-    global LegendaInstancja := SilnikGUI("Mouse Control LEGEND", "+ToolWindow", { CSBarH: 1, unikalny: 1, pokazPasek: 0, AlwaysOnTop: 1, resizeMarg: 0, PadD: 0, PadL: 0, PadR: 0, PadU: 0, createChild: true }) ; CSBarH: 0 kamufluje bug z nadgorliwymi paskami
+    global LegendaInstancja := SilnikGUI("Mouse Control LEGEND", "+ToolWindow", { CSBarH: 0, unikalny: 1, pokazPasek: 0, AlwaysOnTop: 1, resizeMarg: 0, PadD: 0, PadL: 0, PadR: 0, PadU: 0, createChild: true }) ; CSBarH: 0 kamufluje bug z nadgorliwymi paskami
     LegendaGui := LegendaInstancja.GuiObj
     childGuiObj := LegendaInstancja.Stan.ChildGui
 
@@ -1230,17 +1230,17 @@ myBindLateHotkeys() {
 
 ; --- WYDZIELONE HANDLERY LATE BINDING ---
 myLegendaWheelDown(*) {
-    if (CurrentProfile != 4) {
-        UstawProfil((CurrentProfile + 1), true)
-        AktualizujTooltipWLocie()
-    }
+    if myIsCursorOverScrollbar()
+        return SendEvent("{WheelDown}")
+    try GuiControls.DDL.VScrollAction(-1)
+    AktualizujTooltipWLocie()
 }
 
 myLegendaWheelUp(*) {
-    if (CurrentProfile != 0) {
-        UstawProfil((CurrentProfile - 1), true)
-        AktualizujTooltipWLocie()
-    }
+    if myIsCursorOverScrollbar()
+        return SendEvent("{WheelUp}")
+    try GuiControls.DDL.VScrollAction(1)
+    AktualizujTooltipWLocie()
 }
 
 myLegendaLButton(*) {
@@ -1270,8 +1270,17 @@ arrowFocusNav(button := "XButton1", togle := "*MButton") {
         SilnikGUI.CustomTooltip("")
     }
 
-    myWheelUp(*) => myScrToHVArrVScr3Switch ? SendEvent("{Up}") : SendEvent("{Left}")
-    myWheelDown(*) => myScrToHVArrVScr3Switch ? SendEvent("{Down}") : SendEvent("{Right}")
+    myWheelUp(*) {
+        if myIsCursorOverScrollbar()
+            return SendEvent("{WheelUp}")
+        return myScrToHVArrVScr3Switch ? SendEvent("{Up}") : SendEvent("{Left}")
+    }
+
+    myWheelDown(*) {
+        if myIsCursorOverScrollbar()
+            return SendEvent("{WheelDown}")
+        return myScrToHVArrVScr3Switch ? SendEvent("{Down}") : SendEvent("{Right}")
+    }
 
     MouseCtrlLib.AktywujTrybKola(myWheelUp, myWheelDown, myOnStart, myOnStop, () => SilnikGUI.CustomTooltip(""), button)
 }
@@ -1306,6 +1315,8 @@ myStandardScrollMode(button := "RButton", togle := "*LButton") {
     }
 
     myWheelUp(*) {
+        if myIsCursorOverScrollbar()
+            return SendEvent("{WheelUp}")
         if (myScrToHVArrSwitch == 1) {
             SendLevel(1)
             return SendEvent("{WheelLeft}")
@@ -1313,6 +1324,8 @@ myStandardScrollMode(button := "RButton", togle := "*LButton") {
         SendEvent((myScrToHVArrSwitch == 2) ? "{Up}" : "{Left}")
     }
     myWheelDown(*) {
+        if myIsCursorOverScrollbar()
+            return SendEvent("{WheelDown}")
         if (myScrToHVArrSwitch == 1) {
             SendLevel(1)
             return SendEvent("{WheelRight}")
@@ -1506,6 +1519,40 @@ myEmergencyUnlock() {
     myStandardProxyActive := false
 
     SilnikGUI.CustomTooltip("KEYS`nUNLOCKED", { Transparent: 0.2, trybPozycji: "Screen", Align: "UP+20", czas: 2000, rozmiarCzcionki: 25 })
+}
+
+/**
+ * @returns {Boolean} True if cursor hovers over a native or AHK2ColorfulGUI scrollbar
+ */
+myIsCursorOverScrollbar() {
+    CoordMode("Mouse", "Screen")
+    MouseGetPos(&mX, &mY, &mWinHwnd, &mCtrlHwnd, 2)
+
+    if (mCtrlHwnd) {
+        try {
+            ctrlObj := GuiCtrlFromHwnd(mCtrlHwnd)
+            if (ctrlObj && HasProp(ctrlObj, "IsScrollbar") && ctrlObj.IsScrollbar)
+                return true
+        }
+    }
+    if (mWinHwnd) {
+        try {
+            guiObj := GuiFromHwnd(mWinHwnd)
+            if (guiObj && HasProp(guiObj, "IsScrollbar") && guiObj.IsScrollbar)
+                return true
+        }
+    }
+
+    targetHwnd := mCtrlHwnd || mWinHwnd
+    if (!targetHwnd)
+        return false
+
+    lParam := (mX & 0xFFFF) | ((mY & 0xFFFF) << 16)
+    try hitResult := SendMessage(0x0084, 0, lParam, , "ahk_id " targetHwnd)
+    catch
+        return false
+
+    return (hitResult == 6 || hitResult == 7)
 }
 
 ; #endregion
