@@ -94,6 +94,7 @@ if !FileExist(IniPath) { ; Init default INI
     IniWrite("HID\VID_4E53&PID_5407", IniPath, "Settings", "TargetMouseID")
     IniWrite(0, IniPath, "Settings", "LastHScroll")
     IniWrite(0, IniPath, "Settings", "LastCustomVerticalArrows")
+    IniWrite(0, IniPath, "Settings", "ScreenOFF")
 }
 
 ; Wczytywanie ustawień
@@ -125,6 +126,7 @@ class DaneGlobalne {
         global PokazPodpowiedzi := Number(myRead("PokazPodpowiedzi", 1))
         global myAdminStartLvl := Number(myRead("AdminStartLvl", 1))
         global HoldThreshold := Float(myRead("HoldThreshold", 0.15))
+        global myScreenOFF := Number(myRead("ScreenOFF", 0))
         global myLowerBrightness := Number(myRead("LowerBrightness", 0))
         global ListaProfili := ["AUTO (Detect)", "Custom Mouse + Keyboard", "Standard Mouse + Keyboard", "Keyboard Only", "OFF Mode"]
         global myScrToHVArrSwitch := Number(myRead("LastHScroll", 0))
@@ -273,6 +275,7 @@ myUpdateCustom(val) {
         if (myOldState != CustomActive) {
             PokazTip((CustomActive ? "DETECTED" : "DISCONNECTED") . " Mouse: Custom", CustomActive ? "9FFB88" : "FA8072")
             LegendaIstnieje() && AktualizujListe()
+            WygasEkran("UPDATE")
         }
     }
 }
@@ -428,7 +431,7 @@ MonitorujMysz() {
 PokazUstawienia(*) {
     global DefaultProfile, BrightnessStepMouse, BrightnessStepKbd, VolStepMouse, IniPath, GlUs, Uprawnienia
     global StartProf, Edit_BM, Edit_BK, Edit_VM, Edit_VD
-    global StatusTextControl, Check_Autostart, Check_Podpowiedzi, UprawnieniaCheckbox
+    global StatusTextControl, Check_Autostart, Check_Podpowiedzi, UprawnieniaCheckbox, Check_ScreenOFF
     SzerOknUst := 220
     SettingsTipDelON := 300
     pad := 10
@@ -485,6 +488,11 @@ PokazUstawienia(*) {
 
     Check_Podpowiedzi := GlUs.DodajCheckbox("Show tooltips", { czyZaznaczony: PokazPodpowiedzi, pozycja: "xm y+15" })
 
+    Check_ScreenOFF := GlUs.DodajCheckbox("Force hardware screen off", { czyZaznaczony: myScreenOFF, pozycja: "xm y+10" })
+    Check_ScreenOFF.GetPos(, , &cW)
+    Check_ScreenOFF.BoundingBox.GetPos(, , &bbW)
+    Check_ScreenOFF.HoverAction := (*) => SilnikGUI.CustomTooltip("Forces the physical display to turn off via Windows API during SCREEN BLOCK.`nActivated via:`n• LButton + MButton`n• XButton1 + RButton", { delayon: SettingsTipDelON, trybPozycji: Check_ScreenOFF, Align: "down+5 CenterX+" . Round((bbW / 2) - (cW / 2)), Transparent: 0.1, TransClick: 1 })
+
     GlUs.DodajPrzycisk("Apply", (*) => ZapiszIUstaw(GlUs.GuiObj, StartProf, Edit_BM, Edit_BK, Edit_VM, Edit_VD, Check_Podpowiedzi, myStartLvlDDL, false), "y+20 w80 h30")
     GlUs.DodajPrzycisk("Save", (*) => ZapiszIUstaw(GlUs.GuiObj, StartProf, Edit_BM, Edit_BK, Edit_VM, Edit_VD, Check_Podpowiedzi, myStartLvlDDL, true), "x" . (SzerOknUst - 80) . " yp w80 h30")
     GlUs.Pokaz()
@@ -527,7 +535,7 @@ ZastosujZmianyAutostartu() {
     StatusTextControl.Value := NowyStatus
 }
 ZapiszIUstaw(G, D, BM, BK, VM, VD, CP, SL, ZamknijOkno := true) {
-    global DefaultProfile, BrightnessStepMouse, BrightnessStepKbd, VolStepMouse, HoldThreshold, PokazPodpowiedzi, IniPath, Uprawnienia, UprawnieniaCheckbox, Check_Autostart, myAdminStartLvl
+    global DefaultProfile, BrightnessStepMouse, BrightnessStepKbd, VolStepMouse, HoldThreshold, PokazPodpowiedzi, IniPath, Uprawnienia, UprawnieniaCheckbox, Check_Autostart, myAdminStartLvl, myScreenOFF, Check_ScreenOFF
 
     ; 1. Pobranie wartości (SilnikGUI gwarantuje typ i zakres)
     DefaultProfile := D.SelectedIndex - 1
@@ -537,6 +545,7 @@ ZapiszIUstaw(G, D, BM, BK, VM, VD, CP, SL, ZamknijOkno := true) {
     HoldThreshold := Number(StrReplace(VD.Value, ",", ".")) ; Safety check dla float
     PokazPodpowiedzi := CP.Value
     Uprawnienia := UprawnieniaCheckbox.Value
+    myScreenOFF := Check_ScreenOFF.Value
     myAdminStartLvl := SL.SelectedIndex - 1
 
     ; 2. Zapis INI
@@ -544,6 +553,7 @@ ZapiszIUstaw(G, D, BM, BK, VM, VD, CP, SL, ZamknijOkno := true) {
     IniWrite(Uprawnienia, IniPath, "Settings", "Uprawnienia")
     IniWrite(myAdminStartLvl, IniPath, "Settings", "AdminStartLvl")
     IniWrite(PokazPodpowiedzi, IniPath, "Settings", "PokazPodpowiedzi")
+    IniWrite(myScreenOFF, IniPath, "Settings", "ScreenOFF")
     IniWrite(BrightnessStepMouse, IniPath, "Settings", "BrightnessStepMouse")
     IniWrite(BrightnessStepKbd, IniPath, "Settings", "BrightnessStepKbd")
     IniWrite(VolStepMouse, IniPath, "Settings", "VolStepMouse")
@@ -902,8 +912,8 @@ TrescLegendy(profil, CustomState) {
 
     ; Definicje tekstów
     txtKlawiatura := "Ctrl+Alt+R = Unlock keys`nCtrl+Alt+P = Screenshot`nCtrl+F1/F2 = Brightness`nCtrl+F12 = Change profile`nShift + `` = ~"
-    txtCustom := "Right(Hold) = Shift`nRight + Wheel = Volume`nRight + Middle = Mute`nRight + X1 = Alt+Tab`nRight + X2 = Shift+Alt+Tab`nRight(2x) = F11`nX1 + Wheel = Brightness`nX1 + Middle = Screen off`nX1(2x) = Esc`nX1(2xHold) + Wheel = ARR " . (myScrToHVArrVScr3Switch ? "🡱 🡳 / 🡰 🡲" : "🡰 🡲 / 🡱 🡳") . " (LClick)`nX2(Hold) = Ctrl`nX2(Hold) + Wheel = Zoom 🔍`nX2 + Left(2x) = Ctrl+V`nX2 + Left(2xHold) = LClick+Ctrl+V`nX2 + Right = Ctrl+C`nX2 + Right(Hold) = Ctrl+X`nX2 + Right(2x) = LClick+Ctrl+C`nX2 + Right(2xHold) = LClick+Ctrl+X`nX2 + X1 + Wheel = Ctrl+Z/Y`nX2(2x) = Ctrl+Shift+S`nX2(2xHold) + Wheel = Horiz. SCR"
-    txtStandard := "Right(Hold) = Shift`nRight + Wheel = Volume`nRight + Middle = Mute`nRight + Left = Alt+Tab`nRight(2x) = F11`nRight(2xHold) + Wheel = " . ["ARR 🡰 🡲 / SCR 🞀 ❘❙❚❙❘ 🞂 / ARR 🡱 🡳", "SCR 🞀 ❘❙❚❙❘ 🞂 / ARR 🡱 🡳 / ARR 🡰 🡲", "ARR 🡱 🡳 / ARR 🡰 🡲 / SCR 🞀 ❘❙❚❙❘ 🞂"][myScrToHVArrSwitch + 1] . " (Toggle LClick)`nLeft + Wheel = Brightness`nLeft + Middle = Screen off`nLeft + Right = Alt+Tab"
+    txtCustom := "Right(Hold) = Shift`nRight + Wheel = Volume`nRight + Middle = Mute`nRight + X1 = Alt+Tab`nRight + X2 = Shift+Alt+Tab`nRight(2x) = F11`nX1 + Wheel = Brightness`nX1 + Middle = Screen block`nX1(2x) = Esc`nX1(2xHold) + Wheel = ARR " . (myScrToHVArrVScr3Switch ? "🡱 🡳 / 🡰 🡲" : "🡰 🡲 / 🡱 🡳") . " (LClick)`nX2(Hold) = Ctrl`nX2(Hold) + Wheel = Zoom 🔍`nX2 + Left(2x) = Ctrl+V`nX2 + Left(2xHold) = LClick+Ctrl+V`nX2 + Right = Ctrl+C`nX2 + Right(Hold) = Ctrl+X`nX2 + Right(2x) = LClick+Ctrl+C`nX2 + Right(2xHold) = LClick+Ctrl+X`nX2 + X1 + Wheel = Ctrl+Z/Y`nX2(2x) = Ctrl+Shift+S`nX2(2xHold) + Wheel = Horiz. SCR"
+    txtStandard := "Right(Hold) = Shift`nRight + Wheel = Volume`nRight + Middle = Mute`nRight + Left = Alt+Tab`nRight(2x) = F11`nRight(2xHold) + Wheel = " . ["ARR 🡰 🡲 / SCR 🞀 ❘❙❚❙❘ 🞂 / ARR 🡱 🡳", "SCR 🞀 ❘❙❚❙❘ 🞂 / ARR 🡱 🡳 / ARR 🡰 🡲", "ARR 🡱 🡳 / ARR 🡰 🡲 / SCR 🞀 ❘❙❚❙❘ 🞂"][myScrToHVArrSwitch + 1] . " (Toggle LClick)`nLeft + Wheel = Brightness`nLeft + Middle = Screen block`nLeft + Right = Alt+Tab"
 
     ; Wartości domyślne
     dane.Header := (profil == 0) ? "AUTO" : ((profil == 4) ? "" : "MANUAL")
@@ -1040,16 +1050,23 @@ PrzelaczWyciszenie() {
     SilnikGUI.CustomTooltip(PobierzStatusAudio(), { czas: 1500 })
 }
 
-WygasEkran(klawisz := "LButton", ScreenOFF := false) {
-    global EkranWygaszony
+WygasEkran(klawisz := "LButton") {
+    global EkranWygaszony, myScreenOFF, CustomActive, CurrentProfile
     static BlackScreenGui := 0
     static ZegarCtrl := 0
+    static tekstInfo := 0
     static OdswiezZegar := () => (ZegarCtrl ? ZegarCtrl.Value := FormatTime(, "dd.MM.yyyy") "`n" FormatTime(, "HH:mm:ss") : "")
     static WymusZgaszenie := () => ((BlackScreenGui && WinExist(BlackScreenGui.Hwnd)) ? SendMessage(0x112, 0xF170, 2, , "Program Manager") : WygasEkran())
     static hPowerNotify := 0
     static mX := 0, mY := 0
     static ResetNaRuch := () => (SprawdzRuchMyszy(&mX, &mY, 3, true) ? SetTimer(WymusZgaszenie, -3000) : 0)
     static ObslugaWybudzenia := (wParam, lParam, msg, hwnd) => ((wParam == 0x8013) ? ((NumGet(lParam, 20, "UInt") == 1) ? (SetTimer(WymusZgaszenie, -3000), MouseGetPos(&mX, &mY), SetTimer(ResetNaRuch, 100)) : SetTimer(ResetNaRuch, 0)) : 0)
+
+    if (klawisz == "UPDATE") {
+        if (EkranWygaszony && tekstInfo && CurrentProfile == 0)
+            tekstInfo.Value := "PRESS AGAIN`n`n" (CustomActive ? "X1 + RIGHT" : "LEFT + MIDDLE") "`n`nTO UNLOCK"
+        return
+    }
 
     if (BlackScreenGui) {
         if (hPowerNotify) {
@@ -1060,10 +1077,21 @@ WygasEkran(klawisz := "LButton", ScreenOFF := false) {
         SetTimer(WymusZgaszenie, 0)
         SetTimer(ResetNaRuch, 0) ; Stop Watchdoga
         SetTimer(OdswiezZegar, 0) ; Stop zegara
+
+        KeyWait("LButton")
+        KeyWait("MButton")
+        KeyWait("RButton")
+        KeyWait("XButton1")
         try BlackScreenGui.Destroy()
         BlackScreenGui := 0
         ZegarCtrl := 0
+        tekstInfo := 0
         EkranWygaszony := false
+
+        HotIf() ; Zdejmujemy tymczasowe bindy
+        try Hotkey("~LButton & MButton", "Off")
+        try Hotkey("~XButton1 & RButton", "Off")
+
         SendMessage(0x112, 0xF170, -1, , "Program Manager") ; Wymusza wybudzenie
         return
     }
@@ -1075,18 +1103,23 @@ WygasEkran(klawisz := "LButton", ScreenOFF := false) {
 
     EkranWygaszony := true
 
+    HotIf((*) => EkranWygaszony && (CurrentProfile == 2 || (CurrentProfile == 0 && !CustomActive)))
+    Hotkey("~LButton & MButton", (*) => WygasEkran(), "On")
+    HotIf((*) => EkranWygaszony && (CurrentProfile == 1 || (CurrentProfile == 0 && CustomActive)))
+    Hotkey("~XButton1 & RButton", (*) => WygasEkran(), "On")
+
     BlackScreenGui := Gui("+AlwaysOnTop -Caption -SysMenu +ToolWindow -DPIScale")
     BlackScreenGui.BackColor := "Black"
     BlackScreenGui.OnEvent("Close", (*) => WygasEkran()) ; Obsługa Alt+F4
 
     BlackScreenGui.SetFont("s25 c3a3a3a")
-    ZegarCtrl := BlackScreenGui.Add("Text", "x0 y50 w" A_ScreenWidth " Center Hidden", FormatTime(, "dd.MM.yyyy") "`n" FormatTime(, "HH:mm:ss"))
+    ZegarCtrl := BlackScreenGui.Add("Text", "x0 y50 w" A_ScreenWidth " Center", FormatTime(, "dd.MM.yyyy") "`n" FormatTime(, "HH:mm:ss"))
 
     kombinacjaKlawiszy := (klawisz = "XButton1") ? "X1 + RIGHT" : "LEFT + MIDDLE"
     BlackScreenGui.SetFont("s35 bold")
-    tekstInfo := BlackScreenGui.Add("Text", "x0 y" (A_ScreenHeight // 2 - 100) " w" A_ScreenWidth " Center Hidden", "PRESS AGAIN`n`n" kombinacjaKlawiszy "`n`nTO UNLOCK")
+    tekstInfo := BlackScreenGui.Add("Text", "x0 y" (A_ScreenHeight // 2 - 100) " w" A_ScreenWidth " Center", "PRESS AGAIN`n`n" kombinacjaKlawiszy "`n`nTO UNLOCK")
 
-    SetTimer(() => (ZegarCtrl ? tekstInfo.Visible := ZegarCtrl.Visible := true : 0), -1000) ; Safe-check
+    ;   SetTimer(() => (ZegarCtrl ? tekstInfo.Visible := ZegarCtrl.Visible := true : 0), -1000) ; Safe-check
     SetTimer(OdswiezZegar, 1000)
 
     BlackScreenGui.Show(" NA") ; Pokrywa wszystkie monitory
@@ -1094,7 +1127,7 @@ WygasEkran(klawisz := "LButton", ScreenOFF := false) {
     WinActivate(BlackScreenGui.Hwnd) ; Zapewnia, że ekran blokady jest na wierzchu
 
     ; Rejestracja natywnego event-driven detekcji ekranu (GUID_SESSION_DISPLAY_STATUS)
-    if (ScreenOFF) {
+    if (myScreenOFF) {
         GUID_DISPLAY := Buffer(16)
         NumPut("UInt", 0x2B84C20E, "UShort", 0xAD23, "UShort", 0x4DDF, "UChar", 0x93, "UChar", 0xDB, "UChar", 0x05, "UChar", 0xFF, "UChar", 0xBD, "UChar", 0x7E, "UChar", 0xFC, "UChar", 0xA5, GUID_DISPLAY)
         hPowerNotify := DllCall("User32\RegisterPowerSettingNotification", "Ptr", BlackScreenGui.Hwnd, "Ptr", GUID_DISPLAY, "UInt", 0, "Ptr")
@@ -1127,7 +1160,7 @@ myGlobalRButtonUpWrapper(*) {
 
 myBindLateHotkeys() {
     ; --- OKNO LEGENDY ---
-    HotIf((*) => LegendaIstnieje() && DllCall("IsWindowVisible", "Ptr", LegendaGui.Hwnd))
+    HotIf((*) => LegendaIstnieje() && DllCall("IsWindowVisible", "Ptr", LegendaGui.Hwnd) && !EkranWygaszony)
     Hotkey("WheelDown", myLegendaWheelDown, "On")
     Hotkey("WheelUp", myLegendaWheelUp, "On")
     Hotkey("~LButton", myLegendaLButton, "On")
@@ -1135,11 +1168,11 @@ myBindLateHotkeys() {
     Hotkey("~MButton", (*) => myZamknijLegende(), "On")
     Hotkey("~RButton", (*) => myZamknijLegende(), "On")
 
-    HotIf((*) => LegendaIstnieje() && DllCall("IsWindowVisible", "Ptr", LegendaGui.Hwnd) && WinGetMinMax("ahk_id " LegendaGui.hwnd) != -1)
+    HotIf((*) => LegendaIstnieje() && DllCall("IsWindowVisible", "Ptr", LegendaGui.Hwnd) && WinGetMinMax("ahk_id " LegendaGui.hwnd) != -1 && !EkranWygaszony)
     Hotkey("F1", (*) => (PokazUstawienia(), myZamknijLegende()), "On")
 
     ; --- MYSZ Custom ---
-    HotIf((*) => (CurrentProfile == 1 || (CurrentProfile == 0 && CustomActive)))
+    HotIf((*) => (CurrentProfile == 1 || (CurrentProfile == 0 && CustomActive)) && !EkranWygaszony)
     Hotkey("*RButton", (*) => AkcjaRButton(), "On")
     Hotkey("XButton1", myCustomXButton1, "On")
     Hotkey("XButton2", myCustomXButton2, "On")
@@ -1149,10 +1182,10 @@ myBindLateHotkeys() {
     Hotkey("*RButton Up", myGlobalRButtonUpWrapper, "On")
 
     ; --- MYSZ STANDARDOWA ---
-    HotIf((*) => (CurrentProfile == 2 || (CurrentProfile == 0 && !CustomActive)))
+    HotIf((*) => (CurrentProfile == 2 || (CurrentProfile == 0 && !CustomActive)) && !EkranWygaszony)
     Hotkey("RButton", (*) => AkcjaRButton(), "On")
 
-    HotIf((*) => (CurrentProfile == 2 || (CurrentProfile == 0 && !CustomActive)) && !CzyNadZablokowanymElementem() && !myStandardProxyActive)
+    HotIf((*) => (CurrentProfile == 2 || (CurrentProfile == 0 && !CustomActive)) && !CzyNadZablokowanymElementem() && !myStandardProxyActive && !EkranWygaszony)
     Hotkey("~LButton & WheelUp", (*) => (UsunTip(), ZmianaJasnosci(BrightnessStepMouse)), "On")
     Hotkey("~LButton & WheelDown", (*) => (UsunTip(), ZmianaJasnosci(-BrightnessStepMouse)), "On")
     Hotkey("~LButton & MButton", (*) => (UsunTip(), WygasEkran("LButton")), "On")
@@ -1161,26 +1194,26 @@ myBindLateHotkeys() {
     Hotkey("~LButton", (*) => LButtonStandardTip(), "On")
 
     ; --- KLAWIATURA ---
-    HotIf((*) => CurrentProfile != 4)
+    HotIf((*) => CurrentProfile != 4 && !EkranWygaszony)
     Hotkey("^!p", (*) => (SilnikGUI.CustomTooltip("Screenshot 📸", { Transparent: 0.2, trybPozycji: "Screen", Align: "Up+20", rozmiarCzcionki: 25, DelayON: 50, czas: 1500 }), Send("{PrintScreen}")), "On")
     Hotkey("^F1", (*) => ZmianaJasnosci(-BrightnessStepKbd), "On")
     Hotkey("^F2", (*) => ZmianaJasnosci(BrightnessStepKbd), "On")
     Hotkey("+" . Chr(96), (*) => SendText("~"), "On") ; Shift + `
 
     ; --- GŁÓWNE ---
-    HotIf()
+    HotIf((*) => !EkranWygaszony)
     Hotkey("^!r", (*) => myEmergencyUnlock(), "On")
     Hotkey("^F12", myToggleProfile, "On")
 
     ; --- KILL-TIP ---
-    HotIf((*) => TipIstnieje() && !LegendaIstnieje() && !GetKeyState("XButton2", "P") && !myStandardProxyActive)
+    HotIf((*) => TipIstnieje() && !LegendaIstnieje() && !GetKeyState("XButton2", "P") && !myStandardProxyActive && !EkranWygaszony)
     Hotkey("~LButton", myKillTipLButton, "On")
     Hotkey("~MButton", (*) => (UsunTip()), "On")
     Hotkey("~RButton", (*) => (UsunTip()), "On")
     Hotkey("~Esc", (*) => UsunTip(), "On")
 
     ; --- USTAWIENIA ---
-    HotIf((*) => UstawieniaIstnieje() && WinGetMinMax("ahk_id " GlUs.GuiObj.Hwnd) != -1 && WinActive("ahk_id " GlUs.GuiObj.Hwnd))
+    HotIf((*) => UstawieniaIstnieje() && WinGetMinMax("ahk_id " GlUs.GuiObj.Hwnd) != -1 && WinActive("ahk_id " GlUs.GuiObj.Hwnd) && !EkranWygaszony)
     Hotkey("RButton & WheelDown", (*) => Send("{shift up}{Tab}"), "On")
     Hotkey("RButton & WheelUp", (*) => Send("+{Tab}"), "On")
 
@@ -1285,7 +1318,7 @@ myStandardScrollMode(button := "RButton", togle := "*LButton") {
 myCustomXButton1(*) {
     Multiklik("XButton1",
         (*) => Send("{XButton1}"),
-        (*) => (!PokazPodpowiedzi ? (SilnikGUI.CustomTooltip("Brightness: " . currentBrightness . "%  ◑", { ON: !EkranWygaszony, czas: 1500 })) : (SilnikGUI.CustomTooltip("SCR  ➠  BRIGHTNESS  ◑`n..`nRIGHT  ➠  SCREEN OFF  💻`n.[2].`n(x2)  ➠  ESC  🡰`n..`n(2xHOLD)+SCR  🡱 🡳  ➠  ARR  " . (myScrToHVArrVScr3Switch ? "🡱 🡳 / 🡰 🡲" : "🡰 🡲 / 🡱 🡳") . "`n.[2].`nBrightness: " . currentBrightness . "%  ◑", { ON: !EkranWygaszony, MargPoz: 4 })), MouseCtrlLib.AktywujTrybKola((*) => ZmianaJasnosci(BrightnessStepMouse), (*) => ZmianaJasnosci(-BrightnessStepMouse), (*) => Hotkey("*RButton", (*) => (UsunTip(), WygasEkran("XButton1")), "On"), (*) => Hotkey("*RButton", (*) => AkcjaRButton(), "On"), 0, "XButton1"), SilnikGUI.CustomTooltip("")),
+        (*) => (!PokazPodpowiedzi ? (SilnikGUI.CustomTooltip("Brightness: " . currentBrightness . "%  ◑", { ON: !EkranWygaszony, czas: 1500 })) : (SilnikGUI.CustomTooltip("SCR  ➠  BRIGHTNESS  ◑`n..`nRIGHT  ➠  SCREEN BLOCK  💻`n.[2].`n(x2)  ➠  ESC  🡰`n..`n(2xHOLD)+SCR  🡱 🡳  ➠  ARR  " . (myScrToHVArrVScr3Switch ? "🡱 🡳 / 🡰 🡲" : "🡰 🡲 / 🡱 🡳") . "`n.[2].`nBrightness: " . currentBrightness . "%  ◑", { ON: !EkranWygaszony, MargPoz: 4 })), MouseCtrlLib.AktywujTrybKola((*) => ZmianaJasnosci(BrightnessStepMouse), (*) => ZmianaJasnosci(-BrightnessStepMouse), (*) => Hotkey("*RButton", (*) => (UsunTip(), WygasEkran("XButton1")), "On"), (*) => Hotkey("*RButton", (*) => AkcjaRButton(), "On"), 0, "XButton1"), SilnikGUI.CustomTooltip("")),
         (*) => SendEvent("{Escape}"),
         (*) => arrowFocusNav(),
         HoldThreshold
@@ -1346,7 +1379,7 @@ LButtonStandardTip(czasUspienia := HoldThreshold * 1000) {
     if !(CurrentProfile = 2 or (CurrentProfile = 0 and !CustomActive))
         return
 
-    (!PokazPodpowiedzi) ? (SilnikGUI.CustomTooltip("Brightness: " . currentBrightness . "%  ◑", { DelayON: czasUspienia, ON: !EkranWygaszony, czas: 1500 })) : SilnikGUI.CustomTooltip("SCROLL  ➠  BRIGHTNESS  ◑`n.[1].`nMIDDLE  ➠  SCREEN OFF  💻`n.[1].`nRIGHT  ➠  ALT+TAB`n.[2].`nBrightness: " . currentBrightness . "%  ◑", { DelayON: czasUspienia, ON: !EkranWygaszony })
+    (!PokazPodpowiedzi) ? (SilnikGUI.CustomTooltip("Brightness: " . currentBrightness . "%  ◑", { DelayON: czasUspienia, ON: !EkranWygaszony, czas: 1500 })) : SilnikGUI.CustomTooltip("SCROLL  ➠  BRIGHTNESS  ◑`n.[1].`nMIDDLE  ➠  SCREEN BLOCK  💻`n.[1].`nRIGHT  ➠  ALT+TAB`n.[2].`nBrightness: " . currentBrightness . "%  ◑", { DelayON: czasUspienia, ON: !EkranWygaszony })
     KeyWait("LButton")
     SilnikGUI.CustomTooltip()
 }
