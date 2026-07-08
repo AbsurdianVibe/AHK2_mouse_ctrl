@@ -737,7 +737,7 @@ PokazListeSkrotow(*) {
 
     ; Stopka
     childGuiObj.SetFont("s13 bold")
-    GuiControls.BtnSettings := LegendaInstancja.DodajPrzycisk("Settings (F1)", (*) => (PokazUstawienia(), myZamknijLegende()), "w140 h30 Center")
+    GuiControls.BtnSettings := LegendaInstancja.DodajPrzycisk("Settings (F1)", (*) => (myZamknijLegende(), PokazUstawienia()), "w140 h30 Center")
 
     childGuiObj.SetFont("s9", "Segoe UI")
     GuiControls.Exit := childGuiObj.Add("Text", "Center x0 c" . KolorNieaktywny, "(Click this window to close)")
@@ -828,6 +828,7 @@ AktualizujSekcje(tekst, ctrlL, ctrlR, ctrlC, kolor) {
         ctrlL.Value := "", ctrlR.Value := ""
         ctrlC.Value := tekst
         ctrlC.SetFont("c" . KolorWarn)
+        ctrlC.KolorBazowy := KolorWarn
     } else if (tekst == "") {
         ctrlL.Value := "", ctrlR.Value := "", ctrlC.Value := ""
     } else {
