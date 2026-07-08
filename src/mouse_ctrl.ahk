@@ -3,7 +3,7 @@
 ;@Ahk2Exe-SetCompanyName AbsurdianVibe
 ;@Ahk2Exe-SetDescription Mouse Control
 ;@Ahk2Exe-SetCopyright Copyright (c) 2026 AbsurdianVibe
-;@Ahk2Exe-SetVersion 1.1.2
+;@Ahk2Exe-SetVersion 1.2.0
 ;@Ahk2Exe-SetProductName Mouse Control
 ;@Ahk2Exe-SetLanguage 0x0409
 #SingleInstance Off
@@ -1040,7 +1040,7 @@ PrzelaczWyciszenie() {
     SilnikGUI.CustomTooltip(PobierzStatusAudio(), { czas: 1500 })
 }
 
-WygasEkran(klawisz := "LButton") {
+WygasEkran(klawisz := "LButton", ScreenOFF := false) {
     global EkranWygaszony
     static BlackScreenGui := 0
     static ZegarCtrl := 0
@@ -1094,12 +1094,14 @@ WygasEkran(klawisz := "LButton") {
     WinActivate(BlackScreenGui.Hwnd) ; Zapewnia, że ekran blokady jest na wierzchu
 
     ; Rejestracja natywnego event-driven detekcji ekranu (GUID_SESSION_DISPLAY_STATUS)
-    GUID_DISPLAY := Buffer(16)
-    NumPut("UInt", 0x2B84C20E, "UShort", 0xAD23, "UShort", 0x4DDF, "UChar", 0x93, "UChar", 0xDB, "UChar", 0x05, "UChar", 0xFF, "UChar", 0xBD, "UChar", 0x7E, "UChar", 0xFC, "UChar", 0xA5, GUID_DISPLAY)
-    hPowerNotify := DllCall("User32\RegisterPowerSettingNotification", "Ptr", BlackScreenGui.Hwnd, "Ptr", GUID_DISPLAY, "UInt", 0, "Ptr")
-    OnMessage(0x0218, ObslugaWybudzenia, 1) ; Start nasłuchu
+    if (ScreenOFF) {
+        GUID_DISPLAY := Buffer(16)
+        NumPut("UInt", 0x2B84C20E, "UShort", 0xAD23, "UShort", 0x4DDF, "UChar", 0x93, "UChar", 0xDB, "UChar", 0x05, "UChar", 0xFF, "UChar", 0xBD, "UChar", 0x7E, "UChar", 0xFC, "UChar", 0xA5, GUID_DISPLAY)
+        hPowerNotify := DllCall("User32\RegisterPowerSettingNotification", "Ptr", BlackScreenGui.Hwnd, "Ptr", GUID_DISPLAY, "UInt", 0, "Ptr")
+        OnMessage(0x0218, ObslugaWybudzenia, 1) ; Start nasłuchu
 
-    WymusZgaszenie()
+        WymusZgaszenie()
+    }
 }
 
 PobierzStatusAudio() {
