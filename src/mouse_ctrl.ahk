@@ -10,6 +10,8 @@
 A_MaxHotkeysPerInterval := 200 ; Anti-spam scrolla
 ProcessSetPriority "High"
 
+;TEST AUTOMATYZACJI AI
+
 ; #region --- BARIERA ROZRUCHOWA (CLI INTERCEPTOR) ---
 if (A_Args.Length > 0) {
     A_IconHidden := true
