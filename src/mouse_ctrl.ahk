@@ -3,7 +3,7 @@
 ;@Ahk2Exe-SetCompanyName AbsurdianVibe
 ;@Ahk2Exe-SetDescription Mouse Control
 ;@Ahk2Exe-SetCopyright Copyright (c) 2026 AbsurdianVibe
-;@Ahk2Exe-SetVersion 1.2.0
+;@Ahk2Exe-SetVersion 1.2.1
 ;@Ahk2Exe-SetProductName Mouse Control
 ;@Ahk2Exe-SetLanguage 0x0409
 #SingleInstance Off
@@ -694,7 +694,7 @@ PokazListeSkrotow(*) {
 
     ; 1. Odśwież istniejące
     if LegendaIstnieje() {
-        AktualizujListe()
+        AktualizujListe(true)
         AktualizujTooltipWLocie()
         return
     }
@@ -741,7 +741,7 @@ PokazListeSkrotow(*) {
     GuiControls.Exit := childGuiObj.Add("Text", "Center x0 c" . KolorNieaktywny, "(Click this window to close)")
     GuiControls.Exit.OnEvent("Click", (*) => myZamknijLegende())
 
-    AktualizujListe()
+    AktualizujListe(true)
     UsunTip()
 }
 
@@ -750,7 +750,7 @@ myZamknijLegende(*) {
     LegendaGui.Hide()
 }
 
-AktualizujListe() {
+AktualizujListe(wymusWidocznosc := false) {
     global CurrentProfile, GuiControls, CustomActive, SzerkokośćOknaLegendy, LegendaGui, WymiaryLegendy, GruboscRamki
 
     try {
@@ -802,9 +802,17 @@ AktualizujListe() {
 
     ; 3. Finalizacja
     wysokosc_okna := y_exit + hExit + 10
-    UsunTip()
-    LegendaInstancja.Pokaz("w" . SzerkokośćOknaLegendy . " h" . wysokosc_okna . " Center NA")
-    WinActivate(LegendaInstancja.GuiObj.Hwnd)
+    ; Check OS window visibility state
+    myIsVisible := DllCall("IsWindowVisible", "Ptr", LegendaGui.Hwnd)
+
+    if (wymusWidocznosc || myIsVisible) {
+        UsunTip() ; Destroy tip only when legend is displayed
+        LegendaInstancja.Pokaz("w" . SzerkokośćOknaLegendy . " h" . wysokosc_okna . " Center NA")
+        WinActivate(LegendaGui.Hwnd)
+    } else {
+        ; Update window size in memory keeping it hidden
+        LegendaGui.Show("Hide w" . SzerkokośćOknaLegendy . " h" . wysokosc_okna)
+    }
 
     ; Wymuszenie czyszczenia brudnych warstw ChildGui z pozostawionych duchów
     WinRedraw(LegendaInstancja.Stan.ChildGui.Hwnd)
