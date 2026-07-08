@@ -775,20 +775,18 @@ AktualizujListe(wymusWidocznosc := false) {
 
     ; A. Góra
     GuiControls.UprawnieniaText.Move((SzerkokośćOknaLegendy - WymiaryLegendy.wUpr) / 2, 10, WymiaryLegendy.wUpr)
-    GuiControls.UprawnieniaText.Redraw()
     GuiControls.UprawnieniaText.GetPos(, , , &hUpr)
 
     y_curr := 10 + hUpr + 10
     GuiControls.DDL.Move((SzerkokośćOknaLegendy - szerListy) / 2, y_curr)
-    try GuiControls.DDL.Redraw()
     GuiControls.DDL.GetPos(, , , &hDDL)
     y_curr += hDDL + 10
 
     ; B. Sekcje
-    y_curr := OdswiezNaglowek(y_curr, GuiControls.Header, dane.Header, WymiaryLegendy.wMainHead)
-    y_curr := OdswiezNaglowek(y_curr, GuiControls.KlawHeader, dane.KlawHeader, WymiaryLegendy.wHeadK)
+    y_curr := OdswiezNaglowek(y_curr, GuiControls.Header, dane.Header, WymiaryLegendy.wMainHead, WymiaryLegendy.hMainHead)
+    y_curr := OdswiezNaglowek(y_curr, GuiControls.KlawHeader, dane.KlawHeader, WymiaryLegendy.wHeadK, WymiaryLegendy.hHeadK)
     y_curr := OdswiezSekcje(y_curr, dane.KlawText, GuiControls.KlawTextL, GuiControls.KlawTextR, GuiControls.KlawTextCenter, dane.KlawKolor, WymiaryLegendy.KL, WymiaryLegendy.KR, start_x_klaw, WymiaryLegendy.hK)
-    y_curr := OdswiezNaglowek(y_curr, GuiControls.MyszHeader, dane.MyszHeader, WymiaryLegendy.wHeadM)
+    y_curr := OdswiezNaglowek(y_curr, GuiControls.MyszHeader, dane.MyszHeader, WymiaryLegendy.wHeadM, WymiaryLegendy.hHeadM)
     y_curr := OdswiezSekcje(y_curr, dane.MyszText, GuiControls.MyszTextL, GuiControls.MyszTextR, GuiControls.MyszTextCenter, dane.MyszKolor, WymiaryLegendy.ML, WymiaryLegendy.MR, start_x_mysz, WymiaryLegendy.hM)
 
     ; C. Dół (Przyciski)
@@ -799,7 +797,6 @@ AktualizujListe(wymusWidocznosc := false) {
 
     y_exit := y_curr + 30 + 10
     GuiControls.Exit.Move((SzerkokośćOknaLegendy - WymiaryLegendy.wExit) / 2, y_exit, WymiaryLegendy.wExit)
-    GuiControls.Exit.Redraw()
     GuiControls.Exit.GetPos(, , , &hExit) ; Pobieramy wysokość ostatniego elementu
 
     ; 3. Finalizacja
@@ -817,7 +814,7 @@ AktualizujListe(wymusWidocznosc := false) {
     }
 
     ; Wymuszenie czyszczenia brudnych warstw ChildGui z pozostawionych duchów
-    WinRedraw(LegendaInstancja.Stan.ChildGui.Hwnd)
+    LegendaInstancja.WymusPelnyRedraw()
     SetTimer(ObjBindMethod(SilnikGUI, "GłównaPętlaStanu"), 15)
 }
 
@@ -859,23 +856,23 @@ RozdzielNaKolumny(tekst, ctrlL, ctrlR, kolor, separator := "=") {
     }
 }
 
-OdswiezNaglowek(yStart, cHead, txtHead, szerokosc) {
+OdswiezNaglowek(yStart, cHead, txtHead, szerokosc, hHead) {
     global SzerkokośćOknaLegendy
-    hHead := 25
 
     if (txtHead == "") {
         hHead := 0
         marginHead := 0
-        cHead.Value := ""
+        cHead.Visible := false
         cHead.Move(0, yStart, 1, 0)
+        cHead.Value := ""
     } else {
         marginHead := 10
-        cHead.Value := txtHead
-        cHead.Visible := true
+        cHead.Visible := false
         startX := (SzerkokośćOknaLegendy - szerokosc) / 2
         cHead.Move(startX, yStart, szerokosc, hHead)
+        cHead.Value := txtHead
+        cHead.Visible := true
     }
-    cHead.Redraw()
     return yStart + hHead + marginHead
 }
 
@@ -894,20 +891,20 @@ OdswiezSekcje(yStart, txtContent, cL, cR, cC, kolor, wLeft, wRight, startX, hWym
         cL.Move(startX, yStart, 1, 0)
         cR.Move(startX, yStart, 1, 0)
         cC.Move(startX, yStart, 1, 0)
+        AktualizujSekcje(txtContent, cL, cR, cC, kolor)
         return yStart
     }
 
     if (txtContent == "Shortcuts disabled") {
         cC.Move(0, yStart, SzerkokośćOknaLegendy, hContent)
-        cC.Redraw()
         cL.Move(startX, yStart, 1, hContent)
         cR.Move(startX, yStart, 1, hContent)
+        AktualizujSekcje(txtContent, cL, cR, cC, kolor)
     } else {
         cL.Move(startX, yStart, wLeft, hContent)
         cR.Move(startX + wLeft, yStart, wRight, hContent)
-        cL.Redraw()
-        cR.Redraw()
         cC.Move(startX, yStart, 1, hContent)
+        AktualizujSekcje(txtContent, cL, cR, cC, kolor)
     }
 
     return yStart + hContent + 5
@@ -973,9 +970,9 @@ ObliczSzerokoscLegendy(dane) {
     ; Czcionka nagłówków (S15 Bold)
     dummyGui.SetFont("s15 bold", "Segoe UI")
 
-    MierzElement(dane.KlawHeader, &wHeadK)
-    MierzElement(dane.MyszHeader, &wHeadM)
-    MierzElement(dane.Header, &wMainHead)
+    MierzElement(dane.KlawHeader, &wHeadK, &hHeadK)
+    MierzElement(dane.MyszHeader, &wHeadM, &hHeadM)
+    MierzElement(dane.Header, &wMainHead, &hMainHead)
     MierzElement((A_IsAdmin ? "ADMIN" : "REGULAR"), &wUpr)
 
     ; Pomiar stopki (S9)
@@ -993,7 +990,7 @@ ObliczSzerokoscLegendy(dane) {
     ; Marginesy (+40px czyli 20 na stronę)
     totalW := Max(maxContent, maxHeader, szerListy) + 40
 
-    return { Total: totalW, KL: wymiaryK.L, KR: wymiaryK.R, ML: wymiaryM.L, MR: wymiaryM.R, KS: wymiaryK.Single, MS: wymiaryM.Single, hK: hK, hM: hM, wHeadK: wHeadK, wHeadM: wHeadM, wMainHead: wMainHead, wUpr: wUpr, wExit: wExit }
+    return { Total: totalW, KL: wymiaryK.L, KR: wymiaryK.R, ML: wymiaryM.L, MR: wymiaryM.R, KS: wymiaryK.Single, MS: wymiaryM.Single, hK: hK, hM: hM, wHeadK: wHeadK, wHeadM: wHeadM, wMainHead: wMainHead, wUpr: wUpr, wExit: wExit, hHeadK: hHeadK, hHeadM: hHeadM, hMainHead: hMainHead }
 }
 
 ; ============================================================================================================================================================
