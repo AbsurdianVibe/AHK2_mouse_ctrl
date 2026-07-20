@@ -43,7 +43,7 @@ WinSetTitle("MouseCtrl_Main_Window", "ahk_id " A_ScriptHwnd)
 DllCall("User32\ChangeWindowMessageFilterEx", "Ptr", A_ScriptHwnd, "UInt", 0x0044, "UInt", 1, "Ptr", 0) ; Przepustka UIPI dla restartu (#SingleInstance)
 
 #Include "..\AHK2_external_code\UIA.ahk"
-#Include "D:\PRACA\skrypryAHK\AHK2_Colorful_GUI\AHK2ColorfulGUI.ahk"
+#Include "..\..\AHK2_Colorful_GUI\AHK2ColorfulGUI.ahk"
 ; #Include "..\AHK2_Colorful_GUI\AHK2ColorfulGUI.ahk"
 #Include "mouse_ctrl_lib.ahk"
 #Include "..\AHK2_My_libs\MojeFunkcje.ahk"
@@ -473,10 +473,7 @@ PokazUstawienia(*) {
     Check_Autostart := GlUs.DodajCheckbox("Run at system startup", { czyZaznaczony: IsAutostartActive, pozycja: "xm  y+15" })
     Check_Autostart.OnEvent("Click", WeryfikujKlikniecieAutostartu)
     ; Czcionka statusu
-    StatusTextControl := GlUs.Add("Text", "x" . Check_Autostart.LabelX . " y+2", StatusOpis, 0)
-    StatusTextControl.KolorBazowy := "Gray" ; [FIX] Customowy kolor z obsługą przyciemniania
-    ; Reset czcionki
-    GlUs.GuiObj.SetFont("s10 " . SilnikGUI.Motyw.Tekst)
+    StatusTextControl := GlUs.Add("Text", "x" . Check_Autostart.LabelX . " y+2", StatusOpis, 0, , "c808080")
 
     UprawnieniaCheckbox := GlUs.DodajCheckbox("Ask for admin permissions`non startup", { czyZaznaczony: Uprawnienia, pozycja: "xm y+10" })
 
@@ -596,10 +593,11 @@ ManageAutostart(enable) {
                 TaskDef.Settings.StopIfGoingOnBatteries := false
                 TaskDef.Settings.ExecutionTimeLimit := "PT0S" ; Brak limitu czasu
 
-                ; Wyzwalacz: Logowanie
+                ; Logon trigger
                 Triggers := TaskDef.Triggers
                 Trigger := Triggers.Create(9) ; 9 = TASK_TRIGGER_LOGON
                 Trigger.Enabled := true
+                Trigger.Delay := "PT4S" ; Prevent Windows 11 tray icon race condition
 
                 ; Akcja: Skrypt
                 Actions := TaskDef.Actions
@@ -715,17 +713,17 @@ PokazListeSkrotow(*) {
     childGuiObj.SetFont("s15 bold " . KolorTekst, "Segoe UI")
     GuiControls.UprawnieniaText := childGuiObj.Add("Text", "vUprawnieniaText +0x0100 Center x0 Background" . KolorMotywu . " w" . SzerkokośćOknaLegendy, (A_IsAdmin ? "ADMIN" : "REGULAR"))
 
-    childGuiObj.SetFont("s10 norm")
+    childGuiObj.SetFont("s10 norm", "Segoe UI")
     GuiControls.DDL := LegendaInstancja.DDList(ListaProfili, (ctrl, *) => UstawProfil(ctrl.SelectedIndex - 1, false), CurrentProfile + 1, { w: szerListy, pos: "x0" })
 
     ; --- Nagłówki Sekcji ---
-    childGuiObj.SetFont("s15 bold")
+    childGuiObj.SetFont("s15 bold", "Segoe UI")
     GuiControls.Header := childGuiObj.Add("Text", "vAutoTryb +0x0100 Center x0 Background" . KolorMotywu . " " . KolorTekst, "")
     GuiControls.KlawHeader := childGuiObj.Add("Text", "vNaglowekKlawiatury +0x0100 Center x0 Background" . KolorMotywu . " " . KolorTekst, "")
     GuiControls.MyszHeader := childGuiObj.Add("Text", "Center x0 Background" . KolorMotywu . " " . KolorTekst, "")
 
     ; --- Treść (Kolumny) ---
-    childGuiObj.SetFont("s13 w100")
+    childGuiObj.SetFont("s13 w100", "Segoe UI")
     ; Sekcja Klawiatury
     GuiControls.KlawTextL := childGuiObj.Add("Text", "vListaLKlawiatury +0x0100 Right x0 Background" . KolorMotywu . " " . KolorTekst, "")
     GuiControls.KlawTextR := childGuiObj.Add("Text", "vListaRKlawiatury +0x0100 Left x+0 Background" . KolorMotywu . " " . KolorTekst, "")
@@ -736,7 +734,7 @@ PokazListeSkrotow(*) {
     GuiControls.MyszTextCenter := childGuiObj.Add("Text", "Center x0 Background" . KolorMotywu . " c" . KolorNieaktywny, "")
 
     ; Stopka
-    childGuiObj.SetFont("s13 bold")
+    childGuiObj.SetFont("s13 bold", "Segoe UI")
     GuiControls.BtnSettings := LegendaInstancja.DodajPrzycisk("Settings (F1)", (*) => (myZamknijLegende(), PokazUstawienia()), "w140 h30 Center")
 
     childGuiObj.SetFont("s9", "Segoe UI")
@@ -774,10 +772,10 @@ AktualizujListe(wymusWidocznosc := false) {
     ; 2. Układ
 
     ; A. Góra
-    GuiControls.UprawnieniaText.Move((SzerkokośćOknaLegendy - WymiaryLegendy.wUpr) / 2, 10, WymiaryLegendy.wUpr)
+    myMoveDeScaled(GuiControls.UprawnieniaText, (SzerkokośćOknaLegendy - WymiaryLegendy.wUpr) / 2, 10, WymiaryLegendy.wUpr)
     GuiControls.UprawnieniaText.GetPos(, , , &hUpr)
 
-    y_curr := 10 + hUpr + 10
+    y_curr := 10 + hUpr
     GuiControls.DDL.Move((SzerkokośćOknaLegendy - szerListy) / 2, y_curr)
     GuiControls.DDL.GetPos(, , , &hDDL)
     y_curr += hDDL + 10
@@ -796,7 +794,7 @@ AktualizujListe(wymusWidocznosc := false) {
     }
 
     y_exit := y_curr + 30 + 10
-    GuiControls.Exit.Move((SzerkokośćOknaLegendy - WymiaryLegendy.wExit) / 2, y_exit, WymiaryLegendy.wExit)
+    myMoveDeScaled(GuiControls.Exit, (SzerkokośćOknaLegendy - WymiaryLegendy.wExit) / 2, y_exit, WymiaryLegendy.wExit)
     GuiControls.Exit.GetPos(, , , &hExit) ; Pobieramy wysokość ostatniego elementu
 
     ; 3. Finalizacja
@@ -857,6 +855,11 @@ RozdzielNaKolumny(tekst, ctrlL, ctrlR, kolor, separator := "=") {
     }
 }
 
+myMoveDeScaled(ctrl, x?, y?, w?, h?) {
+    rev := ((A_ScreenDPI / 96) * SilnikGUI.Statics.TotalScale)
+    ctrl.Move(IsSet(x) ? x * rev : unset, IsSet(y) ? y * rev : unset, IsSet(w) ? w * rev : unset, IsSet(h) ? h * rev : unset)
+}
+
 OdswiezNaglowek(yStart, cHead, txtHead, szerokosc, hHead) {
     global SzerkokośćOknaLegendy
 
@@ -864,13 +867,13 @@ OdswiezNaglowek(yStart, cHead, txtHead, szerokosc, hHead) {
         hHead := 0
         marginHead := 0
         cHead.Visible := false
-        cHead.Move(0, yStart, 1, 0)
+        myMoveDeScaled(cHead, 0, yStart, 1, 0)
         cHead.Value := ""
     } else {
         marginHead := 10
         cHead.Visible := false
         startX := (SzerkokośćOknaLegendy - szerokosc) / 2
-        cHead.Move(startX, yStart, szerokosc, hHead)
+        myMoveDeScaled(cHead, startX, yStart, szerokosc, hHead)
         cHead.Value := txtHead
         cHead.Visible := true
     }
@@ -889,22 +892,22 @@ OdswiezSekcje(yStart, txtContent, cL, cR, cC, kolor, wLeft, wRight, startX, hWym
     }
 
     if (hContent == 0) {
-        cL.Move(startX, yStart, 1, 0)
-        cR.Move(startX, yStart, 1, 0)
-        cC.Move(startX, yStart, 1, 0)
+        myMoveDeScaled(cL, startX, yStart, 1, 0)
+        myMoveDeScaled(cR, startX, yStart, 1, 0)
+        myMoveDeScaled(cC, startX, yStart, 1, 0)
         AktualizujSekcje(txtContent, cL, cR, cC, kolor)
         return yStart
     }
 
     if (txtContent == "Shortcuts disabled") {
-        cC.Move(0, yStart, SzerkokośćOknaLegendy, hContent)
-        cL.Move(startX, yStart, 1, hContent)
-        cR.Move(startX, yStart, 1, hContent)
+        myMoveDeScaled(cC, 0, yStart, SzerkokośćOknaLegendy, hContent)
+        myMoveDeScaled(cL, startX, yStart, 1, hContent)
+        myMoveDeScaled(cR, startX, yStart, 1, hContent)
         AktualizujSekcje(txtContent, cL, cR, cC, kolor)
     } else {
-        cL.Move(startX, yStart, wLeft, hContent)
-        cR.Move(startX + wLeft, yStart, wRight, hContent)
-        cC.Move(startX, yStart, 1, hContent)
+        myMoveDeScaled(cL, startX, yStart, wLeft, hContent)
+        myMoveDeScaled(cR, startX + wLeft, yStart, wRight, hContent)
+        myMoveDeScaled(cC, startX, yStart, 1, hContent)
         AktualizujSekcje(txtContent, cL, cR, cC, kolor)
     }
 
@@ -963,7 +966,11 @@ ObliczSzerokoscLegendy(dane) {
     wymiaryM := ZmierzWymiarySekcji(dane.MyszText, "=")
 
     ; Pomocnik pomiaru
-    MierzElement(txt, &w := 0, &h := 0) => dummyGui.Add("Text", , txt).GetPos(, , &w, &h)
+    MierzElement(txt, &w := 0, &h := 0) {
+        dummyGui.Add("Text", , txt).GetPos(, , &w, &h)
+        if (txt != "")
+            w += 15 ; Margines bezpieczeństwa przeciwko zaokrągleniom GDI DPI (Floating-point truncation error)
+    }
 
     MierzElement(dane.KlawText, , &hK)
     MierzElement(dane.MyszText, , &hM)
