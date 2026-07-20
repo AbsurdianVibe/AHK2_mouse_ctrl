@@ -903,6 +903,7 @@ AktualizujListe(wymusWidocznosc := false) {
             GuiControls.KlawHeader.GetPos(&xKH, &yKH, &wKH, &hKH)
             master_chk_x := xKH + wKH + 5
             GuiControls.KbdMasterCheckbox.Move(master_chk_x, yKH + (hKH / 2) - 8, "", "", false)
+            GuiControls.KbdMasterCheckbox.Redraw()
         } else {
             GuiControls.KbdMasterCheckbox.Move(-1000, -1000, "", "", false)
         }
@@ -913,6 +914,7 @@ AktualizujListe(wymusWidocznosc := false) {
             if (isKbdVis) {
                 chk_y := yR + (i - 1) * lh + (lh - 16) / 2
                 chk.Move(chk_x, chk_y, "", "", false)
+                chk.Redraw()
             } else {
                 chk.Move(-1000, -1000, "", "", false)
             }
