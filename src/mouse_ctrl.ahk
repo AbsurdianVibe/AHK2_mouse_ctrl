@@ -194,6 +194,8 @@ class DaneGlobalne {
 AktualizujZmienneCheckboxow() {
     global CurrentProfile, CurrentSubProfile, DefaultProfile
     global CfgKbdUnlock, CfgKbdScreen, CfgKbdBright, CfgKbdProfile, CfgKbdTilda, CfgKbdMaster
+    global CfgMouseKeys := ["C_RB_Hold", "C_RB_Wheel", "C_RB_Middle", "C_RB_X1", "C_RB_X2", "C_RB_2x", "C_X1_Wheel", "C_X1_Middle", "C_X1_2x", "C_X1_Hold", "C_X2_Hold", "C_X2_L_2x", "C_X2_L_Hold", "C_X2_R", "C_X2_R_Hold", "C_X2_R_2x", "C_X2_R_2xHold", "C_X2_X1", "C_X2_2x", "C_X2_2xHold", "S_RB_Hold", "S_RB_Wheel", "S_RB_Middle", "S_RB_Left", "S_RB_2x", "S_RB_Hold2x", "S_LB_Wheel", "S_LB_Middle", "S_LB_Right"]
+    tmpMouse := Map()
 
     p := IsSet(CurrentProfile) ? CurrentProfile : DefaultProfile
     if (p == 0)
@@ -213,6 +215,9 @@ AktualizujZmienneCheckboxow() {
     CfgKbdBright := r("CfgKbdBright_" p "_" CurrentSubProfile)
     CfgKbdProfile := r("CfgKbdProfile_" p "_" CurrentSubProfile)
     CfgKbdTilda := r("CfgKbdTilda_" p "_" CurrentSubProfile)
+    for _, k in CfgMouseKeys
+        tmpMouse[k] := r("CfgBox_" k "_" p "_" CurrentSubProfile)
+    global CfgMouse := tmpMouse
     CfgKbdMaster := r("CfgKbdMaster_" p "_" CurrentSubProfile)
 
     if (IsSet(GuiControls) && HasProp(GuiControls, "KbdCheckboxes") && GuiControls.KbdCheckboxes.Length == 5) {
@@ -767,6 +772,7 @@ PokazListeSkrotow(*) {
     global SzerkokośćOknaLegendy, CustomActive
     global WymiaryLegendy
     global CfgKbdUnlock, CfgKbdScreen, CfgKbdBright, CfgKbdProfile, CfgKbdTilda, CfgKbdMaster
+    global CfgMouseKeys, CfgMouse
 
     ; 1. Odśwież istniejące
     if LegendaIstnieje() {
@@ -792,11 +798,11 @@ PokazListeSkrotow(*) {
     childGuiObj.SetFont("s10 norm", "Segoe UI")
     GuiControls.DDL := LegendaInstancja.DDList(ListaProfili, (ctrl, *) => UstawProfil(ctrl.SelectedIndex - 1, false), CurrentProfile + 1, { w: szerListy, pos: "x0" })
     GuiControls.DDLSub := LegendaInstancja.DDList(ListaSubProfili, (ctrl, *) => UstawSubProfil(ctrl.SelectedIndex - 1), CurrentSubProfile + 1, { w: szerListy, pos: "x0" })
-    testcollor := "cff0000"
+
     ; --- Nagłówki Sekcji ---
     childGuiObj.SetFont("s15 bold", "Segoe UI")
     GuiControls.Header := childGuiObj.Add("Text", "vAutoTryb +0x0100 Center x0 Background" . KolorMotywu . " " . KolorTekst, "")
-    GuiControls.KlawHeader := childGuiObj.Add("Text", "vNaglowekKlawiatury +0x0100 Center x0 Background" . testcollor . " " . KolorTekst, "")
+    GuiControls.KlawHeader := childGuiObj.Add("Text", "vNaglowekKlawiatury +0x0100 Center x0 Background" . KolorMotywu . " " . KolorTekst, "")
     GuiControls.MyszHeader := childGuiObj.Add("Text", "Center x0 Background" . KolorMotywu . " " . KolorTekst, "")
 
     ; --- Treść (Kolumny) ---
@@ -844,6 +850,13 @@ PokazListeSkrotow(*) {
     chk5 := LegendaInstancja.DodajCheckbox("", { czyZaznaczony: CfgKbdTilda })
     chk5.UserCallbacks.Push((ctrl, *) => (CfgKbdTilda := ctrl.Value, IniWrite(CfgKbdTilda, IniPath, "Settings", "CfgKbdTilda_" _pCfg() "_" CurrentSubProfile)))
     GuiControls.KbdCheckboxes.Push(chk5)
+
+    GuiControls.MouseCheckboxes := []
+    for _, k in CfgMouseKeys {
+        chk := LegendaInstancja.DodajCheckbox("", { czyZaznaczony: CfgMouse[k] })
+        chk.UserCallbacks.Push(((key, ctrl, *) => (CfgMouse[key] := ctrl.Value, IniWrite(ctrl.Value, IniPath, "Settings", "CfgBox_" key "_" _pCfg() "_" CurrentSubProfile))).Bind(k))
+        GuiControls.MouseCheckboxes.Push(chk)
+    }
 
     AktualizujListe(true)
     UsunTip()
@@ -933,7 +946,31 @@ AktualizujListe(wymusWidocznosc := false) {
     }
 
     y_curr := OdswiezNaglowek(y_curr, GuiControls.MyszHeader, dane.MyszHeader, WymiaryLegendy.wHeadM, WymiaryLegendy.hHeadM)
-    y_curr := OdswiezSekcje(y_curr, dane.MyszText, GuiControls.MyszTextL, GuiControls.MyszTextR, GuiControls.MyszTextCenter, dane.MyszKolor, WymiaryLegendy.ML, WymiaryLegendy.MR, start_x_mysz, WymiaryLegendy.hM)
+    y_curr := OdswiezSekcje(y_curr, dane.MyszText, GuiControls.MyszTextL, GuiControls.MyszTextR, GuiControls.MyszTextCenter, dane.MyszKolor, WymiaryLegendy.ML, WymiaryLegendy.MR, start_x_mysz, WymiaryLegendy.hM, 30)
+
+    GuiControls.MyszTextR.GetPos(&xMR, &yMR, &wMR, &hMR)
+    isMouseVis := (dane.MyszText != "" && dane.MyszText != "Shortcuts disabled")
+
+    isCustomView := (CurrentProfile == 1 || (CurrentProfile == 0 && CustomActive))
+    isStandardView := (CurrentProfile == 2 || (CurrentProfile == 0 && !CustomActive))
+
+    lhM := isMouseVis ? (hMR / (isCustomView ? 20 : 9)) : 0
+    chk_x_M := xMR - (22 * (A_ScreenDPI / 96))
+
+    if HasProp(GuiControls, "MouseCheckboxes") {
+        for i, chk in GuiControls.MouseCheckboxes {
+            chk.Value := CfgMouse[CfgMouseKeys[i]]
+            isCustomKey := (SubStr(CfgMouseKeys[i], 1, 2) == "C_")
+            if (isMouseVis && ((isCustomView && isCustomKey) || (isStandardView && !isCustomKey))) {
+                idxOffset := isCustomKey ? i : (i - 20)
+                chk_y_M := yMR + (idxOffset - 1) * lhM + (lhM - 16) / 2
+                chk.Move(chk_x_M, chk_y_M, "", "", false)
+                chk.Redraw()
+            } else {
+                chk.Move(-1000, -1000, "", "", false)
+            }
+        }
+    }
 
     ; C. Dół (Przyciski)
     GuiControls.BtnSettings.Move((SzerkokośćOknaLegendy - 140) / 2, y_curr)
@@ -1071,7 +1108,7 @@ TrescLegendy(profil, CustomState) {
 
     ; Definicje tekstów
     txtKlawiatura := "Ctrl+Alt+R = Unlock keys`nCtrl+Alt+P = Screenshot`nCtrl+F1/F2 = Brightness`nCtrl+F12 = Change profile`nShift + `` = ~"
-    txtCustom := "Right(Hold) = Shift`nRight + Wheel = Volume`nRight + Middle = Mute`nRight + X1 = Alt+Tab`nRight + X2 = Shift+Alt+Tab`nRight(2x) = F11`nX1 + Wheel = Brightness`nX1 + Middle = Screen block`nX1(2x) = Esc`nX1(2xHold) + Wheel = ARR " . (myScrToHVArrVScr3Switch ? "🡱 🡳 / 🡰 🡲" : "🡰 🡲 / 🡱 🡳") . " (MClick)`nX2(Hold) = Ctrl`nX2(Hold) + Wheel = Zoom 🔍`nX2 + Left(2x) = Ctrl+V`nX2 + Left(2xHold) = LClick+Ctrl+V`nX2 + Right = Ctrl+C`nX2 + Right(Hold) = Ctrl+X`nX2 + Right(2x) = LClick+Ctrl+C`nX2 + Right(2xHold) = LClick+Ctrl+X`nX2 + X1 + Wheel = Ctrl+Z/Y`nX2(2x) = Ctrl+Shift+S`nX2(2xHold) + Wheel = Horiz. SCR"
+    txtCustom := "Right(Hold) = Shift`nRight + Wheel = Volume`nRight + Middle = Mute`nRight + X1 = Alt+Tab`nRight + X2 = Shift+Alt+Tab`nRight(2x) = F11`nX1 + Wheel = Brightness`nX1 + Middle = Screen block`nX1(2x) = Esc`nX1(2xHold) + Wheel = ARR " . (myScrToHVArrVScr3Switch ? "🡱 🡳 / 🡰 🡲" : "🡰 🡲 / 🡱 🡳") . " (MClick)`nX2(Hold)[+Wheel] = Ctrl [+Zoom] 🔍`nX2 + Left(2x) = Ctrl+V`nX2 + Left(2xHold) = LClick+Ctrl+V`nX2 + Right = Ctrl+C`nX2 + Right(Hold) = Ctrl+X`nX2 + Right(2x) = LClick+Ctrl+C`nX2 + Right(2xHold) = LClick+Ctrl+X`nX2 + X1 + Wheel = Ctrl+Z/Y`nX2(2x) = Ctrl+Shift+S`nX2(2xHold) + Wheel = Horiz. SCR"
     txtStandard := "Right(Hold) = Shift`nRight + Wheel = Volume`nRight + Middle = Mute`nRight + Left = Alt+Tab`nRight(2x) = F11`nRight(2xHold) + Wheel = " . ["ARR 🡰 🡲 / SCR 🞀 ❘❙❚❙❘ 🞂 / ARR 🡱 🡳", "SCR 🞀 ❘❙❚❙❘ 🞂 / ARR 🡱 🡳 / ARR 🡰 🡲", "ARR 🡱 🡳 / ARR 🡰 🡲 / SCR 🞀 ❘❙❚❙❘ 🞂"][myScrToHVArrSwitch + 1] . " (MClick)`nLeft + Wheel = Brightness`nLeft + Middle = Screen block`nLeft + Right = Alt+Tab"
 
     ; Wartości domyślne
@@ -1139,7 +1176,7 @@ ObliczSzerokoscLegendy(dane) {
 
     ; Szerokość całkowita okna
     szerokoscK := wymiaryK.L + wymiaryK.R + 30
-    szerokoscM := wymiaryM.L + wymiaryM.R
+    szerokoscM := wymiaryM.L + wymiaryM.R + 30
     maxContent := Max(szerokoscK, szerokoscM, wymiaryK.Single, wymiaryM.Single)
     maxHeader := Max(wHeadK, wHeadM, wMainHead, wUpr)
 
@@ -1350,12 +1387,18 @@ myBindLateHotkeys() {
     HotIf((*) => (CurrentProfile == 2 || (CurrentProfile == 0 && !CustomActive)) && !EkranWygaszony)
     Hotkey("RButton", (*) => AkcjaRButton(), "On")
 
-    HotIf((*) => (CurrentProfile == 2 || (CurrentProfile == 0 && !CustomActive)) && !CzyNadZablokowanymElementem() && !myStandardProxyActive && !EkranWygaszony)
+    HotIf((*) => (CurrentProfile == 2 || (CurrentProfile == 0 && !CustomActive)) && !CzyNadZablokowanymElementem() && !myStandardProxyActive && !EkranWygaszony && CfgMouse["S_LB_Wheel"])
     Hotkey("~LButton & WheelUp", (*) => (UsunTip(), ZmianaJasnosci(BrightnessStepMouse)), "On")
     Hotkey("~LButton & WheelDown", (*) => (UsunTip(), ZmianaJasnosci(-BrightnessStepMouse)), "On")
+
+    HotIf((*) => (CurrentProfile == 2 || (CurrentProfile == 0 && !CustomActive)) && !CzyNadZablokowanymElementem() && !myStandardProxyActive && !EkranWygaszony && CfgMouse["S_LB_Middle"])
     Hotkey("~LButton & MButton", (*) => (UsunTip(), WygasEkran("LButton")), "On")
+
+    HotIf((*) => (CurrentProfile == 2 || (CurrentProfile == 0 && !CustomActive)) && !CzyNadZablokowanymElementem() && !myStandardProxyActive && !EkranWygaszony && CfgMouse["S_LB_Right"])
     Hotkey("~LButton & RButton", (*) => (myNavState.AltActive := true, Send("{Blind}{Alt down}{Tab}")), "On")
     Hotkey("~LButton Up", (*) => (myNavState.AltActive ? (Send("{Alt up}"), myNavState.AltActive := false) : ""), "On")
+
+    HotIf((*) => (CurrentProfile == 2 || (CurrentProfile == 0 && !CustomActive)) && !CzyNadZablokowanymElementem() && !myStandardProxyActive && !EkranWygaszony)
     Hotkey("~LButton", (*) => LButtonStandardTip(), "On")
 
     ; --- KLAWIATURA ---
@@ -1510,9 +1553,9 @@ myStandardScrollMode(button := "RButton", togle := "*LButton") {
 myCustomXButton1(*) {
     Multiklik("XButton1",
         (*) => Send("{XButton1}"),
-        (*) => (!PokazPodpowiedzi ? (SilnikGUI.CustomTooltip("Brightness: " . currentBrightness . "%  ◑", { ON: !EkranWygaszony, czas: 1500 })) : (SilnikGUI.CustomTooltip("SCR  ➠  BRIGHTNESS  ◑`n..`nRIGHT  ➠  SCREEN BLOCK  💻`n.[2].`n(x2)  ➠  ESC  🡰`n..`n(2xHOLD)+SCR  🡱 🡳  ➠  ARR  " . (myScrToHVArrVScr3Switch ? "🡱 🡳 / 🡰 🡲" : "🡰 🡲 / 🡱 🡳") . "`n.[2].`nBrightness: " . currentBrightness . "%  ◑", { ON: !EkranWygaszony, MargPoz: 4 })), MouseCtrlLib.AktywujTrybKola((*) => ZmianaJasnosci(BrightnessStepMouse), (*) => ZmianaJasnosci(-BrightnessStepMouse), (*) => Hotkey("*RButton", (*) => (UsunTip(), WygasEkran("XButton1")), "On"), (*) => Hotkey("*RButton", (*) => AkcjaRButton(), "On"), 0, "XButton1"), SilnikGUI.CustomTooltip("")),
-        (*) => SendEvent("{Escape}"),
-        (*) => arrowFocusNav(),
+        (*) => CfgMouse["C_X1_Wheel"] || CfgMouse["C_X1_Middle"] ? (!PokazPodpowiedzi ? (SilnikGUI.CustomTooltip("Brightness: " . currentBrightness . "%  ◑", { ON: !EkranWygaszony, czas: 1500 })) : (SilnikGUI.CustomTooltip("SCR  ➠  BRIGHTNESS  ◑`n..`nRIGHT  ➠  SCREEN BLOCK  💻`n.[2].`n(x2)  ➠  ESC  🡰`n..`n(2xHOLD)+SCR  🡱 🡳  ➠  ARR  " . (myScrToHVArrVScr3Switch ? "🡱 🡳 / 🡰 🡲" : "🡰 🡲 / 🡱 🡳") . "`n.[2].`nBrightness: " . currentBrightness . "%  ◑", { ON: !EkranWygaszony, MargPoz: 4 })), MouseCtrlLib.AktywujTrybKola(CfgMouse["C_X1_Wheel"] ? (*) => ZmianaJasnosci(BrightnessStepMouse) : 0, CfgMouse["C_X1_Wheel"] ? (*) => ZmianaJasnosci(-BrightnessStepMouse) : 0, CfgMouse["C_X1_Middle"] ? (*) => Hotkey("*RButton", (*) => (UsunTip(), WygasEkran("XButton1")), "On") : 0, CfgMouse["C_X1_Middle"] ? (*) => Hotkey("*RButton", (*) => AkcjaRButton(), "On") : 0, 0, "XButton1"), SilnikGUI.CustomTooltip("")) : "",
+        (*) => CfgMouse["C_X1_2x"] ? SendEvent("{Escape}") : "",
+        (*) => CfgMouse["C_X1_Hold"] ? arrowFocusNav() : "",
         HoldThreshold
     )
 }
@@ -1520,9 +1563,9 @@ myCustomXButton1(*) {
 myCustomXButton2(*) {
     Multiklik("XButton2",
         (*) => Send("{XButton2}"),
-        (*) => (SilnikGUI.CustomTooltip("CTRL  ✲`n..`nSCR  🡱 🡳  ➠  ZOOM   ( + ) 🔍 ( - )`n.[4].`n- L E F T -`n.[3].`n(x2) ➠  CTRL+V  📄`n..`n(2xHOLD)  ➠  CTRL+V+LEFT  📄🡳`n.[4].`n- R I G H T -`n.[3].`n(x1)  ➠  CTRL+C  📄📄`n..`n(HOLD)  ➠  CTRL+X  ✂`n..`n(x2)  ➠  CTRL+C+LEFT   📄📄🡳`n..`n(2xHOLD)  ➠  CTRL+X+LEFT  ✂🡳`n.[4].`nX1+SCR  🡱 🡳  ➠  CTRL+Z/Y  🡷 🡵`n.[3].`n(x2)  ➠  CTRL+SHIFT+S  ✍`n..`n(2xHOLD)+SCR  🡱 🡳  ➠  SCR  🞀 ❘❙❚❙❘ 🞂", { ON: (!EkranWygaszony && PokazPodpowiedzi), MargPoz: 2 }), MouseCtrlLib.AktywujTrybKola((*) => Send("{WheelUp}"), (*) => Send("{WheelDown}"), (*) => Send("{Ctrl Down}"), (*) => Send("{Ctrl Up}"), () => SilnikGUI.CustomTooltip(""), "XButton2"), SilnikGUI.CustomTooltip("")),
-        (*) => SendEvent("^a"),
-        (*) => (SilnikGUI.CustomTooltip("SCR  🡱 🡳  ➠  SCR  🞀 ❘❙❚❙❘ 🞂", { ON: (!EkranWygaszony && PokazPodpowiedzi) }), MouseCtrlLib.AktywujTrybKola((*) => (SendLevel(1), SendEvent("{WheelLeft}")), (*) => (SendLevel(1), SendEvent("{WheelRight}")), 0, 0, () => SilnikGUI.CustomTooltip(""), "XButton2"), SilnikGUI.CustomTooltip("")),
+        (*) => CfgMouse["C_X2_Hold"] ? (SilnikGUI.CustomTooltip("CTRL  ✲`n..`nSCR  🡱 🡳  ➠  ZOOM   ( + ) 🔍 ( - )`n.[4].`n- L E F T -`n.[3].`n(x2) ➠  CTRL+V  📄`n..`n(2xHOLD)  ➠  CTRL+V+LEFT  📄🡳`n.[4].`n- R I G H T -`n.[3].`n(x1)  ➠  CTRL+C  📄📄`n..`n(HOLD)  ➠  CTRL+X  ✂`n..`n(x2)  ➠  CTRL+C+LEFT   📄📄🡳`n..`n(2xHOLD)  ➠  CTRL+X+LEFT  ✂🡳`n.[4].`nX1+SCR  🡱 🡳  ➠  CTRL+Z/Y  🡷 🡵`n.[3].`n(x2)  ➠  CTRL+SHIFT+S  ✍`n..`n(2xHOLD)+SCR  🡱 🡳  ➠  SCR  🞀 ❘❙❚❙❘ 🞂", { ON: (!EkranWygaszony && PokazPodpowiedzi), MargPoz: 2 }), MouseCtrlLib.AktywujTrybKola((*) => Send("{WheelUp}"), (*) => Send("{WheelDown}"), (*) => Send("{Ctrl Down}"), (*) => Send("{Ctrl Up}"), () => SilnikGUI.CustomTooltip(""), "XButton2"), SilnikGUI.CustomTooltip("")) : "",
+        (*) => CfgMouse["C_X2_2x"] ? SendEvent("^a") : "",
+        (*) => CfgMouse["C_X2_2xHold"] ? (SilnikGUI.CustomTooltip("SCR  🡱 🡳  ➠  SCR  🞀 ❘❙❚❙❘ 🞂", { ON: (!EkranWygaszony && PokazPodpowiedzi) }), MouseCtrlLib.AktywujTrybKola((*) => (SendLevel(1), SendEvent("{WheelLeft}")), (*) => (SendLevel(1), SendEvent("{WheelRight}")), 0, 0, () => SilnikGUI.CustomTooltip(""), "XButton2"), SilnikGUI.CustomTooltip("")) : "",
         HoldThreshold
     )
 }
@@ -1531,21 +1574,23 @@ myCustomX2LButton(*) {
     Multiklik("LButton",
         (*) => (SilnikGUI.CustomTooltip(""), Click("Left")),
         (*) => (SilnikGUI.CustomTooltip(""), Send("{Blind}{LButton Down}"), KeyWait("LButton"), Send("{Blind}{LButton Up}")),
-        (*) => (SilnikGUI.CustomTooltip(""), Send("^v")),
-        (*) => (SilnikGUI.CustomTooltip(""), (Click("Left"), Send("^v"))),
+        (*) => CfgMouse["C_X2_L_2x"] ? (SilnikGUI.CustomTooltip(""), Send("^v")) : "",
+        (*) => CfgMouse["C_X2_L_Hold"] ? (SilnikGUI.CustomTooltip(""), (Click("Left"), Send("^v"))) : "",
         HoldThreshold)
 }
 
 myCustomX2RButton(*) {
     Multiklik("RButton",
-        (*) => (SilnikGUI.CustomTooltip(""), Send("^c")),
-        (*) => (SilnikGUI.CustomTooltip(""), Send("^x")),
-        (*) => (SilnikGUI.CustomTooltip(""), (Send("{Ctrl Up}"), Click("Left"), Send("^c"))),
-        (*) => (SilnikGUI.CustomTooltip(""), (Send("{Ctrl Up}"), Click("Left"), Send("^x"))),
+        (*) => CfgMouse["C_X2_R"] ? (SilnikGUI.CustomTooltip(""), Send("^c")) : "",
+        (*) => CfgMouse["C_X2_R_Hold"] ? (SilnikGUI.CustomTooltip(""), Send("^x")) : "",
+        (*) => CfgMouse["C_X2_R_2x"] ? (SilnikGUI.CustomTooltip(""), (Send("{Ctrl Up}"), Click("Left"), Send("^c"))) : "",
+        (*) => CfgMouse["C_X2_R_2xHold"] ? (SilnikGUI.CustomTooltip(""), (Send("{Ctrl Up}"), Click("Left"), Send("^x"))) : "",
         HoldThreshold)
 }
 
 myCustomX2X1(*) {
+    if !CfgMouse["C_X2_X1"]
+        return
     SilnikGUI.CustomTooltip("SCR  🡱 🡳  ➠  CTRL+Z/Y  🡷 🡵", { ON: (!EkranWygaszony && PokazPodpowiedzi) })
     MouseCtrlLib.AktywujTrybKola((*) => Send("^z"), (*) => Send("^y"), 0, 0, () => SilnikGUI.CustomTooltip(""), "xbutton2")
 }
@@ -1592,18 +1637,21 @@ _AkcjaRButton_Hold() {
 
     ; LButton czyści dymek
     try Hotkey("~*LButton", CzyscDymek, "On")
-    try Hotkey("*MButton", (*) => PrzelaczWyciszenie(), "On")
+    if ((CurrentProfile == 1 or (CurrentProfile == 0 and CustomActive)) ? CfgMouse["C_RB_Middle"] : CfgMouse["S_RB_Middle"])
+        try Hotkey("*MButton", (*) => PrzelaczWyciszenie(), "On")
 
     if (CurrentProfile == 1 or (CurrentProfile == 0 and CustomActive)) {
-        try Hotkey("*XButton1", (*) => (myNavState.AltActive := true, Send("{Blind}{Alt down}{Tab}")), "On")
-        try Hotkey("*XButton2", (*) => (myNavState.AltActive := true, Send("{Blind}{Alt down}{Shift down}{Tab}{Shift up}")), "On")
+        if (CfgMouse["C_RB_X1"])
+            try Hotkey("*XButton1", (*) => (myNavState.AltActive := true, Send("{Blind}{Alt down}{Tab}")), "On")
+        if (CfgMouse["C_RB_X2"])
+            try Hotkey("*XButton2", (*) => (myNavState.AltActive := true, Send("{Blind}{Alt down}{Shift down}{Tab}{Shift up}")), "On")
     }
 
     MouseCtrlLib.AktywujTrybKola(
-        (*) => (SetTimer(PokazDymek, 0), ZmianaGlosnosci(VolStepMouse)),
-        (*) => (SetTimer(PokazDymek, 0), ZmianaGlosnosci(-VolStepMouse)),
-        (*) => Send("{LShift Down}"),
-        (*) => Send("{LShift Up}"),
+        (*) => ((CurrentProfile == 1 or (CurrentProfile == 0 and CustomActive)) ? CfgMouse["C_RB_Wheel"] : CfgMouse["S_RB_Wheel"]) ? (SetTimer(PokazDymek, 0), ZmianaGlosnosci(VolStepMouse)) : "",
+        (*) => ((CurrentProfile == 1 or (CurrentProfile == 0 and CustomActive)) ? CfgMouse["C_RB_Wheel"] : CfgMouse["S_RB_Wheel"]) ? (SetTimer(PokazDymek, 0), ZmianaGlosnosci(-VolStepMouse)) : "",
+        (*) => ((CurrentProfile == 1 or (CurrentProfile == 0 and CustomActive)) ? CfgMouse["C_RB_Hold"] : CfgMouse["S_RB_Hold"]) ? Send("{LShift Down}") : "",
+        (*) => ((CurrentProfile == 1 or (CurrentProfile == 0 and CustomActive)) ? CfgMouse["C_RB_Hold"] : CfgMouse["S_RB_Hold"]) ? Send("{LShift Up}") : "",
         (*) => "",
         "RButton"
     )
@@ -1618,7 +1666,8 @@ _AkcjaRButton_Hold() {
 _AkcjaRButton_DoubleHold() {
     if (CurrentProfile == 2 or (CurrentProfile == 0 and !CustomActive)) {
         try Hotkey("*LButton", (*) => (myNavState.CtrlActive := true, Send("{Blind}{Ctrl down}{Tab}")), "On")
-        myStandardScrollMode("RButton", "MButton")
+        if (CfgMouse["S_RB_Hold2x"])
+            myStandardScrollMode("RButton", "MButton")
         try Hotkey("*LButton", "Off")
         if (myNavState.CtrlActive) {
             Send("{Ctrl up}")
@@ -1656,7 +1705,7 @@ AkcjaRButton() {
     Multiklik("RButton",
         (*) => (SendInput("{RButton Down}"), SendInput("{RButton Up}")),
         _AkcjaRButton_Hold,
-        (*) => (UstawFocusPodMysz(), SendEvent("{F11}")),
+        (*) => ((CurrentProfile == 1 or (CurrentProfile == 0 and CustomActive)) ? CfgMouse["C_RB_2x"] : CfgMouse["S_RB_2x"]) ? (UstawFocusPodMysz(), SendEvent("{F11}")) : "",
         _AkcjaRButton_DoubleHold, HoldThreshold, 5
     )
 }
