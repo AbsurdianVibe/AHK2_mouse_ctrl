@@ -3,7 +3,7 @@
 ;@Ahk2Exe-SetCompanyName AbsurdianVibe
 ;@Ahk2Exe-SetDescription Mouse Control
 ;@Ahk2Exe-SetCopyright Copyright (c) 2026 AbsurdianVibe
-;@Ahk2Exe-SetVersion 1.3.1
+;@Ahk2Exe-SetVersion 1.4.1
 ;@Ahk2Exe-SetProductName Mouse Control
 ;@Ahk2Exe-SetLanguage 0x0409
 #SingleInstance Off
@@ -122,6 +122,11 @@ class DaneGlobalne {
         }
 
         global DefaultProfile := Number(myRead("DefaultProfile", 0))
+        global CfgKbdUnlock := Number(myRead("CfgKbdUnlock", 1))
+        global CfgKbdScreen := Number(myRead("CfgKbdScreen", 1))
+        global CfgKbdBright := Number(myRead("CfgKbdBright", 1))
+        global CfgKbdProfile := Number(myRead("CfgKbdProfile", 1))
+        global CfgKbdTilda := Number(myRead("CfgKbdTilda", 1))
         global BrightnessStepMouse := Number(myRead("BrightnessStepMouse", 3))
         global BrightnessStepKbd := Number(myRead("BrightnessStepKbd", 5))
         global VolStepMouse := Number(myRead("VolStepMouse", 2))
@@ -710,6 +715,7 @@ PokazListeSkrotow(*) {
     global LegendaGui, CurrentProfile, GuiControls, GruboscRamki
     global SzerkokośćOknaLegendy, CustomActive
     global WymiaryLegendy
+    global CfgKbdUnlock, CfgKbdScreen, CfgKbdBright, CfgKbdProfile, CfgKbdTilda
 
     ; 1. Odśwież istniejące
     if LegendaIstnieje() {
@@ -760,6 +766,28 @@ PokazListeSkrotow(*) {
     GuiControls.Exit := childGuiObj.Add("Text", "Center x0 c" . KolorNieaktywny, "(Click this window to close)")
     GuiControls.Exit.OnEvent("Click", (*) => myZamknijLegende())
 
+    GuiControls.KbdCheckboxes := []
+
+    chk1 := LegendaInstancja.DodajCheckbox("", { czyZaznaczony: CfgKbdUnlock })
+    chk1.UserCallbacks.Push((ctrl, *) => (CfgKbdUnlock := ctrl.Value, IniWrite(CfgKbdUnlock, IniPath, "Settings", "CfgKbdUnlock")))
+    GuiControls.KbdCheckboxes.Push(chk1)
+
+    chk2 := LegendaInstancja.DodajCheckbox("", { czyZaznaczony: CfgKbdScreen })
+    chk2.UserCallbacks.Push((ctrl, *) => (CfgKbdScreen := ctrl.Value, IniWrite(CfgKbdScreen, IniPath, "Settings", "CfgKbdScreen")))
+    GuiControls.KbdCheckboxes.Push(chk2)
+
+    chk3 := LegendaInstancja.DodajCheckbox("", { czyZaznaczony: CfgKbdBright })
+    chk3.UserCallbacks.Push((ctrl, *) => (CfgKbdBright := ctrl.Value, IniWrite(CfgKbdBright, IniPath, "Settings", "CfgKbdBright")))
+    GuiControls.KbdCheckboxes.Push(chk3)
+
+    chk4 := LegendaInstancja.DodajCheckbox("", { czyZaznaczony: CfgKbdProfile })
+    chk4.UserCallbacks.Push((ctrl, *) => (CfgKbdProfile := ctrl.Value, IniWrite(CfgKbdProfile, IniPath, "Settings", "CfgKbdProfile")))
+    GuiControls.KbdCheckboxes.Push(chk4)
+
+    chk5 := LegendaInstancja.DodajCheckbox("", { czyZaznaczony: CfgKbdTilda })
+    chk5.UserCallbacks.Push((ctrl, *) => (CfgKbdTilda := ctrl.Value, IniWrite(CfgKbdTilda, IniPath, "Settings", "CfgKbdTilda")))
+    GuiControls.KbdCheckboxes.Push(chk5)
+
     AktualizujListe(true)
     UsunTip()
 }
@@ -783,6 +811,11 @@ AktualizujListe(wymusWidocznosc := false) {
     ; 1. Dane i wymiary
     dane := TrescLegendy(CurrentProfile, CustomActive)
     WymiaryLegendy := ObliczSzerokoscLegendy(dane)
+
+    if (dane.KlawText != "" && dane.KlawText != "Shortcuts disabled") {
+        WymiaryLegendy.Total += 35
+    }
+
     SzerkokośćOknaLegendy := WymiaryLegendy.Total
 
     start_x_klaw := (SzerkokośćOknaLegendy - (WymiaryLegendy.KL + WymiaryLegendy.KR)) / 2
@@ -803,6 +836,22 @@ AktualizujListe(wymusWidocznosc := false) {
     y_curr := OdswiezNaglowek(y_curr, GuiControls.Header, dane.Header, WymiaryLegendy.wMainHead, WymiaryLegendy.hMainHead)
     y_curr := OdswiezNaglowek(y_curr, GuiControls.KlawHeader, dane.KlawHeader, WymiaryLegendy.wHeadK, WymiaryLegendy.hHeadK)
     y_curr := OdswiezSekcje(y_curr, dane.KlawText, GuiControls.KlawTextL, GuiControls.KlawTextR, GuiControls.KlawTextCenter, dane.KlawKolor, WymiaryLegendy.KL, WymiaryLegendy.KR, start_x_klaw, WymiaryLegendy.hK)
+
+    GuiControls.KlawTextR.GetPos(&xR, &yR, &wR, &hR)
+    isKbdVis := (dane.KlawText != "" && dane.KlawText != "Shortcuts disabled")
+    lh := isKbdVis ? (hR / 5) : 0
+    chk_x := xR + wR + 10
+    if HasProp(GuiControls, "KbdCheckboxes") {
+        for i, chk in GuiControls.KbdCheckboxes {
+            if (isKbdVis) {
+                chk_y := yR + (i - 1) * lh + (lh - 16) / 2
+                chk.Move(chk_x, chk_y, "", "", false)
+            } else {
+                chk.Move(-1000, -1000, "", "", false)
+            }
+        }
+    }
+
     y_curr := OdswiezNaglowek(y_curr, GuiControls.MyszHeader, dane.MyszHeader, WymiaryLegendy.wHeadM, WymiaryLegendy.hHeadM)
     y_curr := OdswiezSekcje(y_curr, dane.MyszText, GuiControls.MyszTextL, GuiControls.MyszTextR, GuiControls.MyszTextCenter, dane.MyszKolor, WymiaryLegendy.ML, WymiaryLegendy.MR, start_x_mysz, WymiaryLegendy.hM)
 
@@ -1230,15 +1279,21 @@ myBindLateHotkeys() {
     Hotkey("~LButton", (*) => LButtonStandardTip(), "On")
 
     ; --- KLAWIATURA ---
-    HotIf((*) => CurrentProfile != 4 && !EkranWygaszony)
+    HotIf((*) => CurrentProfile != 4 && !EkranWygaszony && CfgKbdScreen)
     Hotkey("^!p", (*) => (SilnikGUI.CustomTooltip("Screenshot 📸", { Transparent: 0.2, trybPozycji: "Screen", Align: "Up+20", rozmiarCzcionki: 25, DelayON: 50, czas: 1500 }), Send("{PrintScreen}")), "On")
+
+    HotIf((*) => CurrentProfile != 4 && !EkranWygaszony && CfgKbdBright)
     Hotkey("^F1", (*) => ZmianaJasnosci(-BrightnessStepKbd), "On")
     Hotkey("^F2", (*) => ZmianaJasnosci(BrightnessStepKbd), "On")
+
+    HotIf((*) => CurrentProfile != 4 && !EkranWygaszony && CfgKbdTilda)
     Hotkey("+" . Chr(96), (*) => SendText("~"), "On") ; Shift + `
 
     ; --- GŁÓWNE ---
-    HotIf((*) => !EkranWygaszony)
+    HotIf((*) => !EkranWygaszony && CfgKbdUnlock)
     Hotkey("^!r", (*) => myEmergencyUnlock(), "On")
+
+    HotIf((*) => !EkranWygaszony && CfgKbdProfile)
     Hotkey("^F12", myToggleProfile, "On")
 
     ; --- KILL-TIP ---
