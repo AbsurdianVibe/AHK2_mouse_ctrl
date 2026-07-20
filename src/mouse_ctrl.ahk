@@ -1553,7 +1553,13 @@ myStandardScrollMode(button := "RButton", togle := "*LButton") {
 myCustomXButton1(*) {
     Multiklik("XButton1",
         (*) => Send("{XButton1}"),
-        (*) => CfgMouse["C_X1_Wheel"] || CfgMouse["C_X1_Middle"] ? (!PokazPodpowiedzi ? (SilnikGUI.CustomTooltip("Brightness: " . currentBrightness . "%  ◑", { ON: !EkranWygaszony, czas: 1500 })) : (SilnikGUI.CustomTooltip("SCR  ➠  BRIGHTNESS  ◑`n..`nRIGHT  ➠  SCREEN BLOCK  💻`n.[2].`n(x2)  ➠  ESC  🡰`n..`n(2xHOLD)+SCR  🡱 🡳  ➠  ARR  " . (myScrToHVArrVScr3Switch ? "🡱 🡳 / 🡰 🡲" : "🡰 🡲 / 🡱 🡳") . "`n.[2].`nBrightness: " . currentBrightness . "%  ◑", { ON: !EkranWygaszony, MargPoz: 4 })), MouseCtrlLib.AktywujTrybKola(CfgMouse["C_X1_Wheel"] ? (*) => ZmianaJasnosci(BrightnessStepMouse) : 0, CfgMouse["C_X1_Wheel"] ? (*) => ZmianaJasnosci(-BrightnessStepMouse) : 0, CfgMouse["C_X1_Middle"] ? (*) => Hotkey("*RButton", (*) => (UsunTip(), WygasEkran("XButton1")), "On") : 0, CfgMouse["C_X1_Middle"] ? (*) => Hotkey("*RButton", (*) => AkcjaRButton(), "On") : 0, 0, "XButton1"), SilnikGUI.CustomTooltip("")) : "",
+        (*) => CfgMouse["C_X1_Wheel"] || CfgMouse["C_X1_Middle"] ? (!PokazPodpowiedzi ? (SilnikGUI.CustomTooltip("Brightness: " . currentBrightness . "%  ◑", { ON: !EkranWygaszony, czas: 1500 })) : (SilnikGUI.CustomTooltip(myDynamicTip([
+            ["C_X1_Wheel", "SCR  ➠  BRIGHTNESS  ◑", "`n..`n"],
+            ["C_X1_Middle", "RIGHT  ➠  SCREEN BLOCK  💻", "`n.[2].`n"],
+            ["C_X1_2x", "(x2)  ➠  ESC  🡰", "`n..`n"],
+            ["C_X1_Hold", "(2xHOLD)+SCR  🡱 🡳  ➠  ARR  " . (myScrToHVArrVScr3Switch ? "🡱 🡳 / 🡰 🡲" : "🡰 🡲 / 🡱 🡳"), "`n.[2].`n"],
+            ["C_X1_Wheel|C_X1_Middle|C_X1_2x|C_X1_Hold", "Brightness: " . currentBrightness . "%  ◑", ""]
+        ]), { ON: !EkranWygaszony, MargPoz: 4 })), MouseCtrlLib.AktywujTrybKola(CfgMouse["C_X1_Wheel"] ? (*) => ZmianaJasnosci(BrightnessStepMouse) : 0, CfgMouse["C_X1_Wheel"] ? (*) => ZmianaJasnosci(-BrightnessStepMouse) : 0, CfgMouse["C_X1_Middle"] ? (*) => Hotkey("*RButton", (*) => (UsunTip(), WygasEkran("XButton1")), "On") : 0, CfgMouse["C_X1_Middle"] ? (*) => Hotkey("*RButton", (*) => AkcjaRButton(), "On") : 0, 0, "XButton1"), SilnikGUI.CustomTooltip("")) : "",
         (*) => CfgMouse["C_X1_2x"] ? SendEvent("{Escape}") : "",
         (*) => CfgMouse["C_X1_Hold"] ? arrowFocusNav() : "",
         HoldThreshold
@@ -1563,7 +1569,21 @@ myCustomXButton1(*) {
 myCustomXButton2(*) {
     Multiklik("XButton2",
         (*) => Send("{XButton2}"),
-        (*) => CfgMouse["C_X2_Hold"] ? (SilnikGUI.CustomTooltip("CTRL  ✲`n..`nSCR  🡱 🡳  ➠  ZOOM   ( + ) 🔍 ( - )`n.[4].`n- L E F T -`n.[3].`n(x2) ➠  CTRL+V  📄`n..`n(2xHOLD)  ➠  CTRL+V+LEFT  📄🡳`n.[4].`n- R I G H T -`n.[3].`n(x1)  ➠  CTRL+C  📄📄`n..`n(HOLD)  ➠  CTRL+X  ✂`n..`n(x2)  ➠  CTRL+C+LEFT   📄📄🡳`n..`n(2xHOLD)  ➠  CTRL+X+LEFT  ✂🡳`n.[4].`nX1+SCR  🡱 🡳  ➠  CTRL+Z/Y  🡷 🡵`n.[3].`n(x2)  ➠  CTRL+SHIFT+S  ✍`n..`n(2xHOLD)+SCR  🡱 🡳  ➠  SCR  🞀 ❘❙❚❙❘ 🞂", { ON: (!EkranWygaszony && PokazPodpowiedzi), MargPoz: 2 }), MouseCtrlLib.AktywujTrybKola((*) => Send("{WheelUp}"), (*) => Send("{WheelDown}"), (*) => Send("{Ctrl Down}"), (*) => Send("{Ctrl Up}"), () => SilnikGUI.CustomTooltip(""), "XButton2"), SilnikGUI.CustomTooltip("")) : "",
+        (*) => CfgMouse["C_X2_Hold"] ? (SilnikGUI.CustomTooltip(myDynamicTip([
+            ["", "CTRL  ✲", "`n..`n"],
+            ["", "SCR  🡱 🡳  ➠  ZOOM   ( + ) 🔍 ( - )", "`n.[4].`n"],
+            ["C_X2_L_2x|C_X2_L_Hold", "- L E F T -", "`n.[3].`n"],
+            ["C_X2_L_2x", "(x2) ➠  CTRL+V  📄", "`n..`n"],
+            ["C_X2_L_Hold", "(2xHOLD)  ➠  CTRL+V+LEFT  📄🡳", "`n.[4].`n"],
+            ["C_X2_R|C_X2_R_Hold|C_X2_R_2x|C_X2_R_2xHold", "- R I G H T -", "`n.[3].`n"],
+            ["C_X2_R", "(x1)  ➠  CTRL+C  📄📄", "`n..`n"],
+            ["C_X2_R_Hold", "(HOLD)  ➠  CTRL+X  ✂", "`n..`n"],
+            ["C_X2_R_2x", "(x2)  ➠  CTRL+C+LEFT   📄📄🡳", "`n..`n"],
+            ["C_X2_R_2xHold", "(2xHOLD)  ➠  CTRL+X+LEFT  ✂🡳", "`n.[4].`n"],
+            ["C_X2_X1", "X1+SCR  🡱 🡳  ➠  CTRL+Z/Y  🡷 🡵", "`n.[3].`n"],
+            ["C_X2_2x", "(x2)  ➠  CTRL+SHIFT+S  ✍", "`n..`n"],
+            ["C_X2_2xHold", "(2xHOLD)+SCR  🡱 🡳  ➠  SCR  🞀 ❘❙❚❙❘ 🞂", ""]
+        ]), { ON: (!EkranWygaszony && PokazPodpowiedzi), MargPoz: 2 }), MouseCtrlLib.AktywujTrybKola((*) => Send("{WheelUp}"), (*) => Send("{WheelDown}"), (*) => Send("{Ctrl Down}"), (*) => Send("{Ctrl Up}"), () => SilnikGUI.CustomTooltip(""), "XButton2"), SilnikGUI.CustomTooltip("")) : "",
         (*) => CfgMouse["C_X2_2x"] ? SendEvent("^a") : "",
         (*) => CfgMouse["C_X2_2xHold"] ? (SilnikGUI.CustomTooltip("SCR  🡱 🡳  ➠  SCR  🞀 ❘❙❚❙❘ 🞂", { ON: (!EkranWygaszony && PokazPodpowiedzi) }), MouseCtrlLib.AktywujTrybKola((*) => (SendLevel(1), SendEvent("{WheelLeft}")), (*) => (SendLevel(1), SendEvent("{WheelRight}")), 0, 0, () => SilnikGUI.CustomTooltip(""), "XButton2"), SilnikGUI.CustomTooltip("")) : "",
         HoldThreshold
@@ -1616,7 +1636,12 @@ LButtonStandardTip(czasUspienia := HoldThreshold * 1000) {
     if !(CurrentProfile = 2 or (CurrentProfile = 0 and !CustomActive))
         return
 
-    (!PokazPodpowiedzi) ? (SilnikGUI.CustomTooltip("Brightness: " . currentBrightness . "%  ◑", { DelayON: czasUspienia, ON: !EkranWygaszony, czas: 1500 })) : SilnikGUI.CustomTooltip("SCROLL  ➠  BRIGHTNESS  ◑`n.[1].`nMIDDLE  ➠  SCREEN BLOCK  💻`n.[1].`nRIGHT  ➠  ALT+TAB`n.[2].`nBrightness: " . currentBrightness . "%  ◑", { DelayON: czasUspienia, ON: !EkranWygaszony })
+    (!PokazPodpowiedzi) ? (SilnikGUI.CustomTooltip("Brightness: " . currentBrightness . "%  ◑", { DelayON: czasUspienia, ON: !EkranWygaszony, czas: 1500 })) : SilnikGUI.CustomTooltip(myDynamicTip([
+        ["S_LB_Wheel", "SCROLL  ➠  BRIGHTNESS  ◑", "`n.[1].`n"],
+        ["S_LB_Middle", "MIDDLE  ➠  SCREEN BLOCK  💻", "`n.[1].`n"],
+        ["S_LB_Right", "RIGHT  ➠  ALT+TAB", "`n.[2].`n"],
+        ["S_LB_Wheel|S_LB_Middle|S_LB_Right", "Brightness: " . currentBrightness . "%  ◑", ""]
+    ]), { DelayON: czasUspienia, ON: !EkranWygaszony })
     KeyWait("LButton")
     SilnikGUI.CustomTooltip()
 }
@@ -1629,7 +1654,26 @@ CzyNadZablokowanymElementem() {
 
 ; Funkcja pomocnicza dla AkcjaRButton, wywoływana przy przytrzymaniu
 _AkcjaRButton_Hold() {
-    PokazDymek := () => !PokazPodpowiedzi ? (SilnikGUI.CustomTooltip(PobierzStatusAudio(), { ON: !EkranWygaszony, czas: 1500 })) : SilnikGUI.CustomTooltip("SHIFT  🡱`n..`n" . ((CurrentProfile = 1 or (CurrentProfile = 0 and CustomActive)) ? "X1  ➠  Alt+Tab`nX2  ➠  Shift+Alt+Tab`n..`n(2xHOLD)SCR / X2, X2  ➠  Ctrl(+Shift)+Tab`n..`n" : "LEFT  ➠  Alt+Tab`n..`n(2xHOLD)+SCR  🡱 🡳  ➠  " . ["ARR 🡰 🡲 / SCR 🞀 ❘❙❚❙❘ 🞂 / ARR 🡱 🡳", "SCR 🞀 ❘❙❚❙❘ 🞂 / ARR 🡱 🡳 / ARR 🡰 🡲", "ARR 🡱 🡳 / ARR 🡰 🡲 / SCR 🞀 ❘❙❚❙❘ 🞂"][myScrToHVArrSwitch + 1] . "`n..`n") . "2X  ➠  f11`n..`nSCR  🡱 🡳  ➠  VOLUME(+/-)`nMIDDLE  ➠  MUTE  🔉X`n.[2].`n" . PobierzStatusAudio(), { ON: !EkranWygaszony })
+    PokazDymek := () => !PokazPodpowiedzi ? (SilnikGUI.CustomTooltip(PobierzStatusAudio(), { ON: !EkranWygaszony, czas: 1500 })) : SilnikGUI.CustomTooltip(myDynamicTip(
+        (CurrentProfile = 1 or (CurrentProfile = 0 and CustomActive)) ? [
+            ["C_RB_Hold", "SHIFT  🡱", "`n..`n"],
+            ["C_RB_X1", "X1  ➠  Alt+Tab", "`n"],
+            ["C_RB_X2", "X2  ➠  Shift+Alt+Tab", "`n..`n"],
+            ["", "(2xHOLD)SCR / X2, X2  ➠  Ctrl(+Shift)+Tab", "`n..`n"],
+            ["C_RB_2x", "2X  ➠  f11", "`n..`n"],
+            ["C_RB_Wheel", "SCR  🡱 🡳  ➠  VOLUME(+/-)", "`n"],
+            ["C_RB_Middle", "MIDDLE  ➠  MUTE  🔉X", "`n.[2].`n"],
+            ["", PobierzStatusAudio(), ""]
+        ] : [
+            ["S_RB_Hold", "SHIFT  🡱", "`n..`n"],
+            ["S_RB_Left", "LEFT  ➠  Alt+Tab", "`n..`n"],
+            ["S_RB_Hold2x", "(2xHOLD)+SCR  🡱 🡳  ➠  " . ["ARR 🡰 🡲 / SCR 🞀 ❘❙❚❙❘ 🞂 / ARR 🡱 🡳", "SCR 🞀 ❘❙❚❙❘ 🞂 / ARR 🡱 🡳 / ARR 🡰 🡲", "ARR 🡱 🡳 / ARR 🡰 🡲 / SCR 🞀 ❘❙❚❙❘ 🞂"][myScrToHVArrSwitch + 1], "`n..`n"],
+            ["S_RB_2x", "2X  ➠  f11", "`n..`n"],
+            ["S_RB_Wheel", "SCR  🡱 🡳  ➠  VOLUME(+/-)", "`n"],
+            ["S_RB_Middle", "MIDDLE  ➠  MUTE  🔉X", "`n.[2].`n"],
+            ["", PobierzStatusAudio(), ""]
+        ]
+    ), { ON: !EkranWygaszony })
     CzyscDymek := (*) => SilnikGUI.CustomTooltip()
 
     ; Timer dymka
@@ -1676,7 +1720,11 @@ _AkcjaRButton_DoubleHold() {
         return
     }
 
-    PokazDymek := () => !PokazPodpowiedzi ? (SilnikGUI.CustomTooltip(PobierzStatusAudio(), { ON: !EkranWygaszony, czas: 1500 })) : SilnikGUI.CustomTooltip("CTRL  ✲`n..`nSCR 🡳 / X1  ➠  Ctrl+Tab`nSCR 🡱 / X2  ➠  Ctrl+Shift+Tab", { ON: !EkranWygaszony })
+    PokazDymek := () => !PokazPodpowiedzi ? (SilnikGUI.CustomTooltip(PobierzStatusAudio(), { ON: !EkranWygaszony, czas: 1500 })) : SilnikGUI.CustomTooltip(myDynamicTip([
+        ["", "CTRL  ✲", "`n..`n"],
+        ["", "SCR 🡳 / X1  ➠  Ctrl+Tab", "`n"],
+        ["", "SCR 🡱 / X2  ➠  Ctrl+Shift+Tab", ""]
+    ]), { ON: !EkranWygaszony })
     CzyscDymek := (*) => SilnikGUI.CustomTooltip()
 
     SetTimer(PokazDymek, -Round(HoldThreshold * 1000))
@@ -1777,3 +1825,29 @@ myIsCursorOverScrollbar() {
 
 ; #endregion
 ;----------------------------------------------------------------------------------------------------------------------------------------------
+
+myDynamicTip(lista) {
+    global CfgMouse
+    out := ""
+    ostSep := ""
+    for el in lista {
+        klucze := el[1]
+        tekst := el[2]
+        aktywny := false
+        if (klucze == "") {
+            aktywny := true
+        } else {
+            for k in StrSplit(klucze, "|") {
+                if (CfgMouse.Has(k) && CfgMouse[k]) {
+                    aktywny := true
+                    break
+                }
+            }
+        }
+        if (aktywny) {
+            out .= ostSep . tekst
+            ostSep := (el.Length > 2) ? el[3] : "`n..`n"
+        }
+    }
+    return out
+}
