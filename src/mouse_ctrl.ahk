@@ -1194,9 +1194,11 @@ myGlobalRButtonUpWrapper(*) {
 
 myBindLateHotkeys() {
     ; --- OKNO LEGENDY ---
-    HotIf((*) => LegendaIstnieje() && DllCall("IsWindowVisible", "Ptr", LegendaGui.Hwnd) && !EkranWygaszony)
+    HotIf((*) => LegendaIstnieje() && WinActive("ahk_id " LegendaGui.Hwnd) && !EkranWygaszony)
     Hotkey("WheelDown", myLegendaWheelDown, "On")
     Hotkey("WheelUp", myLegendaWheelUp, "On")
+
+    HotIf((*) => LegendaIstnieje() && DllCall("IsWindowVisible", "Ptr", LegendaGui.Hwnd) && !EkranWygaszony)
     Hotkey("~LButton", myLegendaLButton, "On")
     Hotkey("~Esc", (*) => myZamknijLegende(), "On")
     Hotkey("~MButton", (*) => myZamknijLegende(), "On")
@@ -1274,6 +1276,14 @@ myLegendaLButton(*) {
     if !LegendaIstnieje()
         return
 
+    MouseGetPos(, , &hoverHwnd)
+    if (hoverHwnd == LegendaGui.Hwnd)
+        return
+
+    if (IsSet(LegendaInstancja) && HasProp(LegendaInstancja, "Stan") && LegendaInstancja.Stan.PopupHwnd && hoverHwnd == LegendaInstancja.Stan.PopupHwnd)
+        return
+
+    myZamknijLegende()
 }
 
 arrowFocusNav(button := "XButton1", togle := "*MButton") {
