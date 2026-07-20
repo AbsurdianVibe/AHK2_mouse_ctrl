@@ -246,6 +246,7 @@ A_TrayMenu.Add("SubProf: GAME", (*) => UstawSubProfil(1))
 A_TrayMenu.Add()
 for i, nazwa in ListaProfili
     A_TrayMenu.Add(nazwa, ((idx, *) => UstawProfil(idx)).Bind(i - 1))
+(IsSet(CurrentProfile)) && A_TrayMenu.Check(ListaProfili[CurrentProfile + 1])
 A_TrayMenu.Add()
 A_TrayMenu.Add("Unlock Keys (Ctrl+Alt+R)", (*) => myEmergencyUnlock())
 A_TrayMenu.Add("Exit", (*) => ExitApp())
@@ -416,6 +417,8 @@ PobierzNazweProfilu() => ["AUTO: " . (CustomActive ? "Custom Mouse" : "Standard 
 
 UstawProfil(nr, pokazacTip := false) {
     global CurrentProfile := nr
+    for j, n in ListaProfili
+        (j - 1 == nr) ? A_TrayMenu.Check(n) : A_TrayMenu.Uncheck(n)
     AktualizujZmienneCheckboxow()
     if (nr == 0)
         myFetchHardwareState(1) ; Fetch ONLY mouse state
