@@ -748,14 +748,14 @@ PokazListeSkrotow(*) {
     GuiControls.MyszHeader := childGuiObj.Add("Text", "Center x0 Background" . KolorMotywu . " " . KolorTekst, "")
 
     ; --- Treść (Kolumny) ---
-    childGuiObj.SetFont("s13 w100", "Segoe UI")
+    childGuiObj.SetFont("s13 w100", "Segoe UI Emoji")
     ; Sekcja Klawiatury
-    GuiControls.KlawTextL := childGuiObj.Add("Text", "vListaLKlawiatury +0x0100 Right x0 Background" . KolorMotywu . " " . KolorTekst, "")
-    GuiControls.KlawTextR := childGuiObj.Add("Text", "vListaRKlawiatury +0x0100 Left x+0 Background" . KolorMotywu . " " . KolorTekst, "")
+    GuiControls.KlawTextL := childGuiObj.Add("Text", "-Wrap vListaLKlawiatury +0x0100 Right x0 Background" . KolorMotywu . " " . KolorTekst, "")
+    GuiControls.KlawTextR := childGuiObj.Add("Text", "-Wrap vListaRKlawiatury +0x0100 Left x+0 Background" . KolorMotywu . " " . KolorTekst, "")
     GuiControls.KlawTextCenter := childGuiObj.Add("Text", "Center x0 Background" . KolorMotywu . " c" . KolorNieaktywny, "")
     ; Mysz
-    GuiControls.MyszTextL := childGuiObj.Add("Text", "Right x0 Background" . KolorMotywu . " " . KolorTekst, "")
-    GuiControls.MyszTextR := childGuiObj.Add("Text", "Left x+0 Background" . KolorMotywu . " " . KolorTekst, "")
+    GuiControls.MyszTextL := childGuiObj.Add("Text", "-Wrap Right x0 Background" . KolorMotywu . " " . KolorTekst, "")
+    GuiControls.MyszTextR := childGuiObj.Add("Text", "-Wrap Left x+0 Background" . KolorMotywu . " " . KolorTekst, "")
     GuiControls.MyszTextCenter := childGuiObj.Add("Text", "Center x0 Background" . KolorMotywu . " c" . KolorNieaktywny, "")
 
     ; Stopka
@@ -991,8 +991,8 @@ TrescLegendy(profil, CustomState) {
 
     ; Definicje tekstów
     txtKlawiatura := "Ctrl+Alt+R = Unlock keys`nCtrl+Alt+P = Screenshot`nCtrl+F1/F2 = Brightness`nCtrl+F12 = Change profile`nShift + `` = ~"
-    txtCustom := "Right(Hold) = Shift`nRight + Wheel = Volume`nRight + Middle = Mute`nRight + X1 = Alt+Tab`nRight + X2 = Shift+Alt+Tab`nRight(2x) = F11`nX1 + Wheel = Brightness`nX1 + Middle = Screen block`nX1(2x) = Esc`nX1(2xHold) + Wheel = ARR " . (myScrToHVArrVScr3Switch ? "🡱 🡳 / 🡰 🡲" : "🡰 🡲 / 🡱 🡳") . " (LClick)`nX2(Hold) = Ctrl`nX2(Hold) + Wheel = Zoom 🔍`nX2 + Left(2x) = Ctrl+V`nX2 + Left(2xHold) = LClick+Ctrl+V`nX2 + Right = Ctrl+C`nX2 + Right(Hold) = Ctrl+X`nX2 + Right(2x) = LClick+Ctrl+C`nX2 + Right(2xHold) = LClick+Ctrl+X`nX2 + X1 + Wheel = Ctrl+Z/Y`nX2(2x) = Ctrl+Shift+S`nX2(2xHold) + Wheel = Horiz. SCR"
-    txtStandard := "Right(Hold) = Shift`nRight + Wheel = Volume`nRight + Middle = Mute`nRight + Left = Alt+Tab`nRight(2x) = F11`nRight(2xHold) + Wheel = " . ["ARR 🡰 🡲 / SCR 🞀 ❘❙❚❙❘ 🞂 / ARR 🡱 🡳", "SCR 🞀 ❘❙❚❙❘ 🞂 / ARR 🡱 🡳 / ARR 🡰 🡲", "ARR 🡱 🡳 / ARR 🡰 🡲 / SCR 🞀 ❘❙❚❙❘ 🞂"][myScrToHVArrSwitch + 1] . " (Toggle LClick)`nLeft + Wheel = Brightness`nLeft + Middle = Screen block`nLeft + Right = Alt+Tab"
+    txtCustom := "Right(Hold) = Shift`nRight + Wheel = Volume`nRight + Middle = Mute`nRight + X1 = Alt+Tab`nRight + X2 = Shift+Alt+Tab`nRight(2x) = F11`nX1 + Wheel = Brightness`nX1 + Middle = Screen block`nX1(2x) = Esc`nX1(2xHold) + Wheel = ARR " . (myScrToHVArrVScr3Switch ? "🡱 🡳 / 🡰 🡲" : "🡰 🡲 / 🡱 🡳") . " (MClick)`nX2(Hold) = Ctrl`nX2(Hold) + Wheel = Zoom 🔍`nX2 + Left(2x) = Ctrl+V`nX2 + Left(2xHold) = LClick+Ctrl+V`nX2 + Right = Ctrl+C`nX2 + Right(Hold) = Ctrl+X`nX2 + Right(2x) = LClick+Ctrl+C`nX2 + Right(2xHold) = LClick+Ctrl+X`nX2 + X1 + Wheel = Ctrl+Z/Y`nX2(2x) = Ctrl+Shift+S`nX2(2xHold) + Wheel = Horiz. SCR"
+    txtStandard := "Right(Hold) = Shift`nRight + Wheel = Volume`nRight + Middle = Mute`nRight + Left = Alt+Tab`nRight(2x) = F11`nRight(2xHold) + Wheel = " . ["ARR 🡰 🡲 / SCR 🞀 ❘❙❚❙❘ 🞂 / ARR 🡱 🡳", "SCR 🞀 ❘❙❚❙❘ 🞂 / ARR 🡱 🡳 / ARR 🡰 🡲", "ARR 🡱 🡳 / ARR 🡰 🡲 / SCR 🞀 ❘❙❚❙❘ 🞂"][myScrToHVArrSwitch + 1] . " (MClick)`nLeft + Wheel = Brightness`nLeft + Middle = Screen block`nLeft + Right = Alt+Tab"
 
     ; Wartości domyślne
     dane.Header := (profil == 0) ? "AUTO" : ((profil == 4) ? "" : "MANUAL")
@@ -1007,7 +1007,7 @@ TrescLegendy(profil, CustomState) {
 
 ObliczSzerokoscLegendy(dane) {
     dummyGui := Gui()
-    dummyGui.SetFont("s13 w100", "Segoe UI") ; Czcionka standard
+    dummyGui.SetFont("s13 w100", "Segoe UI Emoji") ; Czcionka standard
 
     ; Lokalna funkcja pomiarowa dla legendy (bez zaleznosci od usuniętego MojeFunkcje)
     ZmierzWymiarySekcji(tekst, separator := "") {
@@ -1025,7 +1025,7 @@ ObliczSzerokoscLegendy(dane) {
                 maxSingle := Max(maxSingle, wS)
             }
         }
-        return { L: maxLeft, R: maxRight, Single: maxSingle }
+        return { L: maxLeft + 10, R: maxRight + 10, Single: maxSingle + 10 }
     }
 
     ; Mierzymy sekcję Klawiatury
