@@ -1,9 +1,9 @@
-#Requires AutoHotkey v2.0
+﻿#Requires AutoHotkey v2.0
 ;@Ahk2Exe-SetMainIcon mouse_ctrl.ico
 ;@Ahk2Exe-SetCompanyName AbsurdianVibe
 ;@Ahk2Exe-SetDescription Mouse Control
 ;@Ahk2Exe-SetCopyright Copyright (c) 2026 AbsurdianVibe
-;@Ahk2Exe-SetVersion 1.2.1
+;@Ahk2Exe-SetVersion 1.3.1
 ;@Ahk2Exe-SetProductName Mouse Control
 ;@Ahk2Exe-SetLanguage 0x0409
 #SingleInstance Off
@@ -133,9 +133,28 @@ class DaneGlobalne {
         global ListaProfili := ["AUTO (Detect)", "Custom Mouse + Keyboard", "Standard Mouse + Keyboard", "Keyboard Only", "OFF Mode"]
         global myScrToHVArrSwitch := Number(myRead("LastHScroll", 0))
         global myScrToHVArrVScr3Switch := Number(myRead("LastCustomVerticalArrows", 0))
+        A_IconHidden := true
 
-        if FileExist(A_ScriptDir . "\mouse_ctrl.ico")
-            TraySetIcon(A_ScriptDir . "\mouse_ctrl.ico")
+        ; Dry-run dla manualnego uruchomienia programu
+        myInjectIcon() {
+            A_IconHidden := false
+            if FileExist(A_ScriptDir . "\mouse_ctrl.ico")
+                TraySetIcon(A_ScriptDir . "\mouse_ctrl.ico")
+        }
+        myInjectIcon()
+
+        if (DllCall("GetTickCount64") < 60000) {
+            global myInjectTryCount := 0
+            SetTimer(myInjectRetry, 1000)
+        }
+
+        myInjectRetry() {
+            global myInjectTryCount
+            myInjectIcon()
+            if (++myInjectTryCount >= 6)
+                SetTimer(myInjectRetry, 0)
+        }
+
         global AktywneOkna := []
         global CurrentProfile := DefaultProfile
         global currentBrightness := Number(myRead("LastBrightness", 10))
