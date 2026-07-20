@@ -873,9 +873,13 @@ AktualizujListe(wymusWidocznosc := false) {
     GuiControls.DDL.Move((SzerkokośćOknaLegendy - szerListy) / 2, y_curr)
     GuiControls.DDL.GetPos(, , , &hDDL)
     y_curr += hDDL + 5
-    GuiControls.DDLSub.Move((SzerkokośćOknaLegendy - szerListy) / 2, y_curr)
-    GuiControls.DDLSub.GetPos(, , , &hDDLSub)
-    y_curr += hDDLSub + 10
+    if (CurrentProfile != 4) {
+        GuiControls.DDLSub.Move((SzerkokośćOknaLegendy - szerListy) / 2, y_curr)
+        GuiControls.DDLSub.GetPos(, , , &hDDLSub)
+        y_curr += hDDLSub + 10
+    } else {
+        GuiControls.DDLSub.Move(-1000, -1000)
+    }
 
     ; B. Sekcje
     y_curr := OdswiezNaglowek(y_curr, GuiControls.Header, dane.Header, WymiaryLegendy.wMainHead, WymiaryLegendy.hMainHead)
