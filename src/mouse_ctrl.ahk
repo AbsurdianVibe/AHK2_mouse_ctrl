@@ -193,7 +193,7 @@ class DaneGlobalne {
 
 AktualizujZmienneCheckboxow() {
     global CurrentProfile, CurrentSubProfile, DefaultProfile
-    global CfgKbdUnlock, CfgKbdScreen, CfgKbdBright, CfgKbdProfile, CfgKbdTilda
+    global CfgKbdUnlock, CfgKbdScreen, CfgKbdBright, CfgKbdProfile, CfgKbdTilda, CfgKbdMaster
 
     p := IsSet(CurrentProfile) ? CurrentProfile : DefaultProfile
     if (p == 0)
@@ -213,6 +213,7 @@ AktualizujZmienneCheckboxow() {
     CfgKbdBright := r("CfgKbdBright_" p "_" CurrentSubProfile)
     CfgKbdProfile := r("CfgKbdProfile_" p "_" CurrentSubProfile)
     CfgKbdTilda := r("CfgKbdTilda_" p "_" CurrentSubProfile)
+    CfgKbdMaster := r("CfgKbdMaster_" p "_" CurrentSubProfile)
 
     if (IsSet(GuiControls) && HasProp(GuiControls, "KbdCheckboxes") && GuiControls.KbdCheckboxes.Length == 5) {
         GuiControls.KbdCheckboxes[1].Value := CfgKbdUnlock
@@ -220,6 +221,9 @@ AktualizujZmienneCheckboxow() {
         GuiControls.KbdCheckboxes[3].Value := CfgKbdBright
         GuiControls.KbdCheckboxes[4].Value := CfgKbdProfile
         GuiControls.KbdCheckboxes[5].Value := CfgKbdTilda
+    }
+    if (IsSet(GuiControls) && HasProp(GuiControls, "KbdMasterCheckbox")) {
+        GuiControls.KbdMasterCheckbox.Value := CfgKbdMaster
     }
 }
 
@@ -754,7 +758,7 @@ PokazListeSkrotow(*) {
     global LegendaGui, CurrentProfile, GuiControls, GruboscRamki
     global SzerkokośćOknaLegendy, CustomActive
     global WymiaryLegendy
-    global CfgKbdUnlock, CfgKbdScreen, CfgKbdBright, CfgKbdProfile, CfgKbdTilda
+    global CfgKbdUnlock, CfgKbdScreen, CfgKbdBright, CfgKbdProfile, CfgKbdTilda, CfgKbdMaster
 
     ; 1. Odśwież istniejące
     if LegendaIstnieje() {
@@ -780,11 +784,11 @@ PokazListeSkrotow(*) {
     childGuiObj.SetFont("s10 norm", "Segoe UI")
     GuiControls.DDL := LegendaInstancja.DDList(ListaProfili, (ctrl, *) => UstawProfil(ctrl.SelectedIndex - 1, false), CurrentProfile + 1, { w: szerListy, pos: "x0" })
     GuiControls.DDLSub := LegendaInstancja.DDList(ListaSubProfili, (ctrl, *) => UstawSubProfil(ctrl.SelectedIndex - 1), CurrentSubProfile + 1, { w: szerListy, pos: "x0" })
-
+    testcollor := "cff0000"
     ; --- Nagłówki Sekcji ---
     childGuiObj.SetFont("s15 bold", "Segoe UI")
     GuiControls.Header := childGuiObj.Add("Text", "vAutoTryb +0x0100 Center x0 Background" . KolorMotywu . " " . KolorTekst, "")
-    GuiControls.KlawHeader := childGuiObj.Add("Text", "vNaglowekKlawiatury +0x0100 Center x0 Background" . KolorMotywu . " " . KolorTekst, "")
+    GuiControls.KlawHeader := childGuiObj.Add("Text", "vNaglowekKlawiatury +0x0100 Center x0 Background" . testcollor . " " . KolorTekst, "")
     GuiControls.MyszHeader := childGuiObj.Add("Text", "Center x0 Background" . KolorMotywu . " " . KolorTekst, "")
 
     ; --- Treść (Kolumny) ---
@@ -808,26 +812,29 @@ PokazListeSkrotow(*) {
 
     GuiControls.KbdCheckboxes := []
 
-    pCfg := (CurrentProfile == 0) ? (CustomActive ? 1 : 2) : CurrentProfile
+    _pCfg() => (CurrentProfile == 0) ? (CustomActive ? 1 : 2) : CurrentProfile
+
+    GuiControls.KbdMasterCheckbox := LegendaInstancja.DodajCheckbox("", { czyZaznaczony: CfgKbdMaster })
+    GuiControls.KbdMasterCheckbox.UserCallbacks.Push((ctrl, *) => (CfgKbdMaster := ctrl.Value, IniWrite(CfgKbdMaster, IniPath, "Settings", "CfgKbdMaster_" _pCfg() "_" CurrentSubProfile)))
 
     chk1 := LegendaInstancja.DodajCheckbox("", { czyZaznaczony: CfgKbdUnlock })
-    chk1.UserCallbacks.Push((ctrl, *) => (CfgKbdUnlock := ctrl.Value, IniWrite(CfgKbdUnlock, IniPath, "Settings", "CfgKbdUnlock_" pCfg "_" CurrentSubProfile)))
+    chk1.UserCallbacks.Push((ctrl, *) => (CfgKbdUnlock := ctrl.Value, IniWrite(CfgKbdUnlock, IniPath, "Settings", "CfgKbdUnlock_" _pCfg() "_" CurrentSubProfile)))
     GuiControls.KbdCheckboxes.Push(chk1)
 
     chk2 := LegendaInstancja.DodajCheckbox("", { czyZaznaczony: CfgKbdScreen })
-    chk2.UserCallbacks.Push((ctrl, *) => (CfgKbdScreen := ctrl.Value, IniWrite(CfgKbdScreen, IniPath, "Settings", "CfgKbdScreen_" pCfg "_" CurrentSubProfile)))
+    chk2.UserCallbacks.Push((ctrl, *) => (CfgKbdScreen := ctrl.Value, IniWrite(CfgKbdScreen, IniPath, "Settings", "CfgKbdScreen_" _pCfg() "_" CurrentSubProfile)))
     GuiControls.KbdCheckboxes.Push(chk2)
 
     chk3 := LegendaInstancja.DodajCheckbox("", { czyZaznaczony: CfgKbdBright })
-    chk3.UserCallbacks.Push((ctrl, *) => (CfgKbdBright := ctrl.Value, IniWrite(CfgKbdBright, IniPath, "Settings", "CfgKbdBright_" pCfg "_" CurrentSubProfile)))
+    chk3.UserCallbacks.Push((ctrl, *) => (CfgKbdBright := ctrl.Value, IniWrite(CfgKbdBright, IniPath, "Settings", "CfgKbdBright_" _pCfg() "_" CurrentSubProfile)))
     GuiControls.KbdCheckboxes.Push(chk3)
 
     chk4 := LegendaInstancja.DodajCheckbox("", { czyZaznaczony: CfgKbdProfile })
-    chk4.UserCallbacks.Push((ctrl, *) => (CfgKbdProfile := ctrl.Value, IniWrite(CfgKbdProfile, IniPath, "Settings", "CfgKbdProfile_" pCfg "_" CurrentSubProfile)))
+    chk4.UserCallbacks.Push((ctrl, *) => (CfgKbdProfile := ctrl.Value, IniWrite(CfgKbdProfile, IniPath, "Settings", "CfgKbdProfile_" _pCfg() "_" CurrentSubProfile)))
     GuiControls.KbdCheckboxes.Push(chk4)
 
     chk5 := LegendaInstancja.DodajCheckbox("", { czyZaznaczony: CfgKbdTilda })
-    chk5.UserCallbacks.Push((ctrl, *) => (CfgKbdTilda := ctrl.Value, IniWrite(CfgKbdTilda, IniPath, "Settings", "CfgKbdTilda_" pCfg "_" CurrentSubProfile)))
+    chk5.UserCallbacks.Push((ctrl, *) => (CfgKbdTilda := ctrl.Value, IniWrite(CfgKbdTilda, IniPath, "Settings", "CfgKbdTilda_" _pCfg() "_" CurrentSubProfile)))
     GuiControls.KbdCheckboxes.Push(chk5)
 
     AktualizujListe(true)
@@ -890,6 +897,17 @@ AktualizujListe(wymusWidocznosc := false) {
     isKbdVis := (dane.KlawText != "" && dane.KlawText != "Shortcuts disabled")
     lh := isKbdVis ? (hR / 5) : 0
     chk_x := xR - (22 * (A_ScreenDPI / 96))
+
+    if HasProp(GuiControls, "KbdMasterCheckbox") {
+        if (isKbdVis) {
+            GuiControls.KlawHeader.GetPos(&xKH, &yKH, &wKH, &hKH)
+            master_chk_x := xKH + wKH + 5
+            GuiControls.KbdMasterCheckbox.Move(master_chk_x, yKH + (hKH / 2) - 8, "", "", false)
+        } else {
+            GuiControls.KbdMasterCheckbox.Move(-1000, -1000, "", "", false)
+        }
+    }
+
     if HasProp(GuiControls, "KbdCheckboxes") {
         for i, chk in GuiControls.KbdCheckboxes {
             if (isKbdVis) {
@@ -1328,21 +1346,21 @@ myBindLateHotkeys() {
     Hotkey("~LButton", (*) => LButtonStandardTip(), "On")
 
     ; --- KLAWIATURA ---
-    HotIf((*) => CurrentProfile != 4 && !EkranWygaszony && CfgKbdScreen)
+    HotIf((*) => CurrentProfile != 4 && !EkranWygaszony && CfgKbdMaster && CfgKbdScreen)
     Hotkey("^!p", (*) => (SilnikGUI.CustomTooltip("Screenshot 📸", { Transparent: 0.2, trybPozycji: "Screen", Align: "Up+20", rozmiarCzcionki: 25, DelayON: 50, czas: 1500 }), Send("{PrintScreen}")), "On")
 
-    HotIf((*) => CurrentProfile != 4 && !EkranWygaszony && CfgKbdBright)
+    HotIf((*) => CurrentProfile != 4 && !EkranWygaszony && CfgKbdMaster && CfgKbdBright)
     Hotkey("^F1", (*) => ZmianaJasnosci(-BrightnessStepKbd), "On")
     Hotkey("^F2", (*) => ZmianaJasnosci(BrightnessStepKbd), "On")
 
-    HotIf((*) => CurrentProfile != 4 && !EkranWygaszony && CfgKbdTilda)
+    HotIf((*) => CurrentProfile != 4 && !EkranWygaszony && CfgKbdMaster && CfgKbdTilda)
     Hotkey("+" . Chr(96), (*) => SendText("~"), "On") ; Shift + `
 
     ; --- GŁÓWNE ---
-    HotIf((*) => !EkranWygaszony && CfgKbdUnlock)
+    HotIf((*) => !EkranWygaszony && CfgKbdMaster && CfgKbdUnlock)
     Hotkey("^!r", (*) => myEmergencyUnlock(), "On")
 
-    HotIf((*) => !EkranWygaszony && CfgKbdProfile)
+    HotIf((*) => !EkranWygaszony && CfgKbdMaster && CfgKbdProfile)
     Hotkey("^F12", myToggleProfile, "On")
 
     ; --- KILL-TIP ---
