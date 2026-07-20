@@ -122,11 +122,9 @@ class DaneGlobalne {
         }
 
         global DefaultProfile := Number(myRead("DefaultProfile", 0))
-        global CfgKbdUnlock := Number(myRead("CfgKbdUnlock", 1))
-        global CfgKbdScreen := Number(myRead("CfgKbdScreen", 1))
-        global CfgKbdBright := Number(myRead("CfgKbdBright", 1))
-        global CfgKbdProfile := Number(myRead("CfgKbdProfile", 1))
-        global CfgKbdTilda := Number(myRead("CfgKbdTilda", 1))
+        global ListaSubProfili := ["NORMAL", "GAME"]
+        global CurrentSubProfile := Number(myRead("LastSubProfile", 0))
+        AktualizujZmienneCheckboxow()
         global BrightnessStepMouse := Number(myRead("BrightnessStepMouse", 3))
         global BrightnessStepKbd := Number(myRead("BrightnessStepKbd", 5))
         global VolStepMouse := Number(myRead("VolStepMouse", 2))
@@ -190,6 +188,38 @@ class DaneGlobalne {
         global KolorWarn := SilnikGUI.Motyw.Ostrzezenie
         global KolorPrzycisku := SilnikGUI.Motyw.Przycisk
         OnExit(ZapiszStanSprzetowy)
+    }
+}
+
+AktualizujZmienneCheckboxow() {
+    global CurrentProfile, CurrentSubProfile, DefaultProfile
+    global CfgKbdUnlock, CfgKbdScreen, CfgKbdBright, CfgKbdProfile, CfgKbdTilda
+
+    p := IsSet(CurrentProfile) ? CurrentProfile : DefaultProfile
+    if (p == 0)
+        p := (IsSet(CustomActive) && CustomActive) ? 1 : 2
+
+    r(k) {
+        try v := IniRead(IniPath, "Settings", k)
+        catch {
+            IniWrite(1, IniPath, "Settings", k)
+            v := 1
+        }
+        return Number(v)
+    }
+
+    CfgKbdUnlock := r("CfgKbdUnlock_" p "_" CurrentSubProfile)
+    CfgKbdScreen := r("CfgKbdScreen_" p "_" CurrentSubProfile)
+    CfgKbdBright := r("CfgKbdBright_" p "_" CurrentSubProfile)
+    CfgKbdProfile := r("CfgKbdProfile_" p "_" CurrentSubProfile)
+    CfgKbdTilda := r("CfgKbdTilda_" p "_" CurrentSubProfile)
+
+    if (IsSet(GuiControls) && HasProp(GuiControls, "KbdCheckboxes") && GuiControls.KbdCheckboxes.Length == 5) {
+        GuiControls.KbdCheckboxes[1].Value := CfgKbdUnlock
+        GuiControls.KbdCheckboxes[2].Value := CfgKbdScreen
+        GuiControls.KbdCheckboxes[3].Value := CfgKbdBright
+        GuiControls.KbdCheckboxes[4].Value := CfgKbdProfile
+        GuiControls.KbdCheckboxes[5].Value := CfgKbdTilda
     }
 }
 
@@ -378,6 +408,7 @@ PobierzNazweProfilu() => ["AUTO: " . (CustomActive ? "Custom Mouse" : "Standard 
 
 UstawProfil(nr, pokazacTip := false) {
     global CurrentProfile := nr
+    AktualizujZmienneCheckboxow()
     if (nr == 0)
         myFetchHardwareState(1) ; Fetch ONLY mouse state
 
@@ -391,6 +422,14 @@ UstawProfil(nr, pokazacTip := false) {
     LegendaIstnieje() && AktualizujListe()
 }
 ; #endregion
+
+UstawSubProfil(nr) {
+    global CurrentSubProfile := nr
+    IniWrite(CurrentSubProfile, IniPath, "Settings", "LastSubProfile")
+    AktualizujZmienneCheckboxow()
+    LegendaIstnieje() && AktualizujListe()
+}
+
 ; #region teśc popupów
 TipText := {
     AdminTip: (A_IsAdmin
@@ -740,6 +779,7 @@ PokazListeSkrotow(*) {
 
     childGuiObj.SetFont("s10 norm", "Segoe UI")
     GuiControls.DDL := LegendaInstancja.DDList(ListaProfili, (ctrl, *) => UstawProfil(ctrl.SelectedIndex - 1, false), CurrentProfile + 1, { w: szerListy, pos: "x0" })
+    GuiControls.DDLSub := LegendaInstancja.DDList(ListaSubProfili, (ctrl, *) => UstawSubProfil(ctrl.SelectedIndex - 1), CurrentSubProfile + 1, { w: szerListy, pos: "x0" })
 
     ; --- Nagłówki Sekcji ---
     childGuiObj.SetFont("s15 bold", "Segoe UI")
@@ -768,24 +808,26 @@ PokazListeSkrotow(*) {
 
     GuiControls.KbdCheckboxes := []
 
+    pCfg := (CurrentProfile == 0) ? (CustomActive ? 1 : 2) : CurrentProfile
+
     chk1 := LegendaInstancja.DodajCheckbox("", { czyZaznaczony: CfgKbdUnlock })
-    chk1.UserCallbacks.Push((ctrl, *) => (CfgKbdUnlock := ctrl.Value, IniWrite(CfgKbdUnlock, IniPath, "Settings", "CfgKbdUnlock")))
+    chk1.UserCallbacks.Push((ctrl, *) => (CfgKbdUnlock := ctrl.Value, IniWrite(CfgKbdUnlock, IniPath, "Settings", "CfgKbdUnlock_" pCfg "_" CurrentSubProfile)))
     GuiControls.KbdCheckboxes.Push(chk1)
 
     chk2 := LegendaInstancja.DodajCheckbox("", { czyZaznaczony: CfgKbdScreen })
-    chk2.UserCallbacks.Push((ctrl, *) => (CfgKbdScreen := ctrl.Value, IniWrite(CfgKbdScreen, IniPath, "Settings", "CfgKbdScreen")))
+    chk2.UserCallbacks.Push((ctrl, *) => (CfgKbdScreen := ctrl.Value, IniWrite(CfgKbdScreen, IniPath, "Settings", "CfgKbdScreen_" pCfg "_" CurrentSubProfile)))
     GuiControls.KbdCheckboxes.Push(chk2)
 
     chk3 := LegendaInstancja.DodajCheckbox("", { czyZaznaczony: CfgKbdBright })
-    chk3.UserCallbacks.Push((ctrl, *) => (CfgKbdBright := ctrl.Value, IniWrite(CfgKbdBright, IniPath, "Settings", "CfgKbdBright")))
+    chk3.UserCallbacks.Push((ctrl, *) => (CfgKbdBright := ctrl.Value, IniWrite(CfgKbdBright, IniPath, "Settings", "CfgKbdBright_" pCfg "_" CurrentSubProfile)))
     GuiControls.KbdCheckboxes.Push(chk3)
 
     chk4 := LegendaInstancja.DodajCheckbox("", { czyZaznaczony: CfgKbdProfile })
-    chk4.UserCallbacks.Push((ctrl, *) => (CfgKbdProfile := ctrl.Value, IniWrite(CfgKbdProfile, IniPath, "Settings", "CfgKbdProfile")))
+    chk4.UserCallbacks.Push((ctrl, *) => (CfgKbdProfile := ctrl.Value, IniWrite(CfgKbdProfile, IniPath, "Settings", "CfgKbdProfile_" pCfg "_" CurrentSubProfile)))
     GuiControls.KbdCheckboxes.Push(chk4)
 
     chk5 := LegendaInstancja.DodajCheckbox("", { czyZaznaczony: CfgKbdTilda })
-    chk5.UserCallbacks.Push((ctrl, *) => (CfgKbdTilda := ctrl.Value, IniWrite(CfgKbdTilda, IniPath, "Settings", "CfgKbdTilda")))
+    chk5.UserCallbacks.Push((ctrl, *) => (CfgKbdTilda := ctrl.Value, IniWrite(CfgKbdTilda, IniPath, "Settings", "CfgKbdTilda_" pCfg "_" CurrentSubProfile)))
     GuiControls.KbdCheckboxes.Push(chk5)
 
     AktualizujListe(true)
@@ -830,17 +872,20 @@ AktualizujListe(wymusWidocznosc := false) {
     y_curr := 10 + hUpr
     GuiControls.DDL.Move((SzerkokośćOknaLegendy - szerListy) / 2, y_curr)
     GuiControls.DDL.GetPos(, , , &hDDL)
-    y_curr += hDDL + 10
+    y_curr += hDDL + 5
+    GuiControls.DDLSub.Move((SzerkokośćOknaLegendy - szerListy) / 2, y_curr)
+    GuiControls.DDLSub.GetPos(, , , &hDDLSub)
+    y_curr += hDDLSub + 10
 
     ; B. Sekcje
     y_curr := OdswiezNaglowek(y_curr, GuiControls.Header, dane.Header, WymiaryLegendy.wMainHead, WymiaryLegendy.hMainHead)
     y_curr := OdswiezNaglowek(y_curr, GuiControls.KlawHeader, dane.KlawHeader, WymiaryLegendy.wHeadK, WymiaryLegendy.hHeadK)
-    y_curr := OdswiezSekcje(y_curr, dane.KlawText, GuiControls.KlawTextL, GuiControls.KlawTextR, GuiControls.KlawTextCenter, dane.KlawKolor, WymiaryLegendy.KL, WymiaryLegendy.KR, start_x_klaw, WymiaryLegendy.hK)
+    y_curr := OdswiezSekcje(y_curr, dane.KlawText, GuiControls.KlawTextL, GuiControls.KlawTextR, GuiControls.KlawTextCenter, dane.KlawKolor, WymiaryLegendy.KL, WymiaryLegendy.KR, start_x_klaw, WymiaryLegendy.hK, 30)
 
     GuiControls.KlawTextR.GetPos(&xR, &yR, &wR, &hR)
     isKbdVis := (dane.KlawText != "" && dane.KlawText != "Shortcuts disabled")
     lh := isKbdVis ? (hR / 5) : 0
-    chk_x := xR + wR + 10
+    chk_x := xR - (22 * (A_ScreenDPI / 96))
     if HasProp(GuiControls, "KbdCheckboxes") {
         for i, chk in GuiControls.KbdCheckboxes {
             if (isKbdVis) {
@@ -948,7 +993,7 @@ OdswiezNaglowek(yStart, cHead, txtHead, szerokosc, hHead) {
     return yStart + hHead + marginHead
 }
 
-OdswiezSekcje(yStart, txtContent, cL, cR, cC, kolor, wLeft, wRight, startX, hWymuszone) {
+OdswiezSekcje(yStart, txtContent, cL, cR, cC, kolor, wLeft, wRight, startX, hWymuszone, offsetCenter := 0) {
     global SzerkokośćOknaLegendy
     AktualizujSekcje(txtContent, cL, cR, cC, kolor)
 
@@ -974,7 +1019,7 @@ OdswiezSekcje(yStart, txtContent, cL, cR, cC, kolor, wLeft, wRight, startX, hWym
         AktualizujSekcje(txtContent, cL, cR, cC, kolor)
     } else {
         myMoveDeScaled(cL, startX, yStart, wLeft, hContent)
-        myMoveDeScaled(cR, startX + wLeft, yStart, wRight, hContent)
+        myMoveDeScaled(cR, startX + wLeft + offsetCenter, yStart, wRight, hContent)
         myMoveDeScaled(cC, startX, yStart, 1, hContent)
         AktualizujSekcje(txtContent, cL, cR, cC, kolor)
     }
@@ -1058,7 +1103,7 @@ ObliczSzerokoscLegendy(dane) {
     dummyGui.Destroy()
 
     ; Szerokość całkowita okna
-    szerokoscK := wymiaryK.L + wymiaryK.R
+    szerokoscK := wymiaryK.L + wymiaryK.R + 30
     szerokoscM := wymiaryM.L + wymiaryM.R
     maxContent := Max(szerokoscK, szerokoscM, wymiaryK.Single, wymiaryM.Single)
     maxHeader := Max(wHeadK, wHeadM, wMainHead, wUpr)
