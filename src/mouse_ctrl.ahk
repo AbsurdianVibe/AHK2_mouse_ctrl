@@ -240,6 +240,10 @@ A_TrayMenu.ClickCount := 1
 A_TrayMenu.Add()
 A_TrayMenu.Add("Settings", PokazUstawienia)
 A_TrayMenu.Add()
+A_TrayMenu.Add("SubProf: NORMAL", (*) => UstawSubProfil(0))
+A_TrayMenu.Add("SubProf: GAME", (*) => UstawSubProfil(1))
+(IsSet(CurrentSubProfile) && CurrentSubProfile == 1) ? A_TrayMenu.Check("SubProf: GAME") : A_TrayMenu.Check("SubProf: NORMAL")
+A_TrayMenu.Add()
 for i, nazwa in ListaProfili
     A_TrayMenu.Add(nazwa, ((idx, *) => UstawProfil(idx)).Bind(i - 1))
 A_TrayMenu.Add()
@@ -429,6 +433,7 @@ UstawProfil(nr, pokazacTip := false) {
 
 UstawSubProfil(nr) {
     global CurrentSubProfile := nr
+    (nr == 1) ? (A_TrayMenu.Check("SubProf: GAME"), A_TrayMenu.Uncheck("SubProf: NORMAL")) : (A_TrayMenu.Check("SubProf: NORMAL"), A_TrayMenu.Uncheck("SubProf: GAME"))
     IniWrite(CurrentSubProfile, IniPath, "Settings", "LastSubProfile")
     AktualizujZmienneCheckboxow()
     LegendaIstnieje() && AktualizujListe()
@@ -849,12 +854,15 @@ myZamknijLegende(*) {
 AktualizujListe(wymusWidocznosc := false) {
     global CurrentProfile, GuiControls, CustomActive, SzerkokośćOknaLegendy, LegendaGui, WymiaryLegendy, GruboscRamki
 
-    try {
-        ctrlDDL := GuiControls.DDL.Ctrls[1]
-        ctrlDDL.SelectedIndex := CurrentProfile + 1
-        nowaWartosc := ctrlDDL.Opcje[CurrentProfile + 1]
-        ctrlDDL.Value := nowaWartosc
-        ControlSetText(nowaWartosc, ctrlDDL.Hwnd)
+    if HasProp(GuiControls, "DDL") {
+        ctrlDDL := GuiControls.DDL.MainCtrl
+        ctrlDDL.Text := ctrlDDL.Opcje[CurrentProfile + 1]
+    }
+
+    if HasProp(GuiControls, "DDLSub") {
+        ctrlDDLSub := GuiControls.DDLSub.MainCtrl
+        ctrlDDLSub.Text := ListaSubProfili[CurrentSubProfile + 1]
+        ctrlDDLSub.Redraw()
     }
 
     ; 1. Dane i wymiary
