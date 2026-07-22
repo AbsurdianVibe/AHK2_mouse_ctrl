@@ -785,7 +785,7 @@ PokazListeSkrotow(*) {
     dane_startowe := TrescLegendy(CurrentProfile, CustomActive)
     WymiaryLegendy := ObliczSzerokoscLegendy(dane_startowe)
     SzerkokośćOknaLegendy := WymiaryLegendy.Total
-    LegendaInstancja.PadX := 0
+    LegendaInstancja.PadX := 5
     LegendaGui := LegendaInstancja.GuiObj
     childGuiObj := LegendaInstancja.Stan.ChildGui
 
@@ -806,12 +806,12 @@ PokazListeSkrotow(*) {
     ; --- Treść (Kolumny) ---
     childGuiObj.SetFont("s13 w100", "Segoe UI Emoji")
     ; Sekcja Klawiatury
-    GuiControls.KlawTextL := childGuiObj.Add("Text", "-Wrap vListaLKlawiatury +0x0100 Right x0 Background" . KolorWarn . " " . KolorTekst, "")
-    GuiControls.KlawTextR := childGuiObj.Add("Text", "-Wrap vListaRKlawiatury +0x0100 Left x+0 Background" . KolorWarn . " " . KolorTekst, "")
+    GuiControls.KlawTextL := childGuiObj.Add("Text", "-Wrap vListaLKlawiatury +0x0100 Right x0 Background" . KolorMotywu . " " . KolorTekst, "")
+    GuiControls.KlawTextR := childGuiObj.Add("Text", "-Wrap vListaRKlawiatury +0x0100 Left x+0 Background" . KolorMotywu . " " . KolorTekst, "")
     GuiControls.KlawTextCenter := childGuiObj.Add("Text", "Center x0 Background" . KolorMotywu . " c" . KolorNieaktywny, "")
     ; Mysz
-    GuiControls.MyszTextL := childGuiObj.Add("Text", "-Wrap Right x0 Background" . KolorWarn . " " . KolorTekst, "")
-    GuiControls.MyszTextR := childGuiObj.Add("Text", "-Wrap Left x+0 Background" . KolorWarn . " " . KolorTekst, "")
+    GuiControls.MyszTextL := childGuiObj.Add("Text", "-Wrap Right x0 Background" . KolorMotywu . " " . KolorTekst, "")
+    GuiControls.MyszTextR := childGuiObj.Add("Text", "-Wrap Left x+0 Background" . KolorMotywu . " " . KolorTekst, "")
     GuiControls.MyszTextCenter := childGuiObj.Add("Text", "Center x0 Background" . KolorMotywu . " c" . KolorNieaktywny, "")
 
     ; Stopka
