@@ -60,10 +60,6 @@ global WM_COPYDATA := 0x004A
 global myWmiNamespace := "winmgmts:\\.\root\WMI"
 ; #endregion
 
-; #region --- FOCUS SINK ---
-global myFocusSinkGui := Gui("+ToolWindow -Caption +AlwaysOnTop")
-myFocusSinkGui.Show("Hide x-10000 y-10000 w10 h10 NA")
-; #endregion
 ; #region --- SPRAWDZANIE UPRAWNIEŃ ---
 ; TODO: Fix skalowania (refaktor legendy do silnika)
 
@@ -865,7 +861,6 @@ PokazListeSkrotow(*) {
 }
 
 myZamknijLegende(*) {
-    try WinActivate(myFocusSinkGui.Hwnd) ; Twarda aktywacja niewidocznego okna usuwa flagę Foreground z Legendy
     LegendaGui.Hide()
 }
 
