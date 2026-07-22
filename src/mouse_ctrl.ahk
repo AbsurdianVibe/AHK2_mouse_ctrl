@@ -1,9 +1,9 @@
-﻿#Requires AutoHotkey v2.0
+#Requires AutoHotkey v2.0
 ;@Ahk2Exe-SetMainIcon mouse_ctrl.ico
 ;@Ahk2Exe-SetCompanyName AbsurdianVibe
 ;@Ahk2Exe-SetDescription Mouse Control
 ;@Ahk2Exe-SetCopyright Copyright (c) 2026 AbsurdianVibe
-;@Ahk2Exe-SetVersion 1.4.1
+;@Ahk2Exe-SetVersion 1.4.2
 ;@Ahk2Exe-SetProductName Mouse Control
 ;@Ahk2Exe-SetLanguage 0x0409
 #SingleInstance Off
@@ -124,7 +124,6 @@ class DaneGlobalne {
         global DefaultProfile := Number(myRead("DefaultProfile", 0))
         global ListaSubProfili := ["NORMAL", "GAME"]
         global CurrentSubProfile := Number(myRead("LastSubProfile", 0))
-        AktualizujZmienneCheckboxow()
         global BrightnessStepMouse := Number(myRead("BrightnessStepMouse", 3))
         global BrightnessStepKbd := Number(myRead("BrightnessStepKbd", 5))
         global VolStepMouse := Number(myRead("VolStepMouse", 2))
@@ -170,6 +169,7 @@ class DaneGlobalne {
         global SzerkokośćOknaLegendy := 200
         global TargetMouseID := myRead("TargetMouseID", "HID\VID_4E53&PID_5407")
         global CustomActive := Number(myRead("LastCustomActive", 0))
+        AktualizujZmienneCheckboxow()
         global DystansDoZamkniecia := 100 ; Dystans w px do zamknięcia popupu
         global MyszNadIkona := false
         global TipLive := 5000 ; Czas życia tooltipa (ms)
@@ -194,7 +194,7 @@ class DaneGlobalne {
 AktualizujZmienneCheckboxow() {
     global CurrentProfile, CurrentSubProfile, DefaultProfile
     global CfgKbdUnlock, CfgKbdScreen, CfgKbdBright, CfgKbdProfile, CfgKbdTilda, CfgKbdMaster
-    global CfgMouseKeys := ["C_RB_Hold", "C_RB_Wheel", "C_RB_Middle", "C_RB_X1", "C_RB_X2", "C_RB_2x", "C_X1_Wheel", "C_X1_Middle", "C_X1_2x", "C_X1_Hold", "C_X2_Hold", "C_X2_L_2x", "C_X2_L_Hold", "C_X2_R", "C_X2_R_Hold", "C_X2_R_2x", "C_X2_R_2xHold", "C_X2_X1", "C_X2_2x", "C_X2_2xHold", "S_RB_Hold", "S_RB_Wheel", "S_RB_Middle", "S_RB_Left", "S_RB_2x", "S_RB_Hold2x", "S_LB_Wheel", "S_LB_Middle", "S_LB_Right"]
+    global CfgMouseKeys := ["C_RB_Hold", "C_RB_Wheel", "C_RB_Middle", "C_RB_X1", "C_RB_X2", "C_RB_2x", "C_RB_2xHold_X1", "C_RB_2xHold_X2", "C_RB_2xHold_Wheel", "C_X1_Wheel", "C_X1_Middle", "C_X1_2x", "C_X1_Hold", "C_X2_Hold", "C_X2_L_2x", "C_X2_L_Hold", "C_X2_R", "C_X2_R_Hold", "C_X2_R_2x", "C_X2_R_2xHold", "C_X2_X1", "C_X2_2x", "C_X2_2xHold", "S_RB_Hold", "S_RB_Wheel", "S_RB_Middle", "S_RB_Left", "S_RB_2x", "S_RB_Hold2x", "S_LB_Wheel", "S_LB_Middle", "S_LB_Right"]
     tmpMouse := Map()
 
     p := IsSet(CurrentProfile) ? CurrentProfile : DefaultProfile
@@ -954,7 +954,7 @@ AktualizujListe(wymusWidocznosc := false) {
     isCustomView := (CurrentProfile == 1 || (CurrentProfile == 0 && CustomActive))
     isStandardView := (CurrentProfile == 2 || (CurrentProfile == 0 && !CustomActive))
 
-    lhM := isMouseVis ? (hMR / (isCustomView ? 20 : 9)) : 0
+    lhM := isMouseVis ? (hMR / (isCustomView ? 23 : 9)) : 0
     chk_x_M := xMR - (22 * (A_ScreenDPI / 96))
 
     if HasProp(GuiControls, "MouseCheckboxes") {
@@ -962,7 +962,7 @@ AktualizujListe(wymusWidocznosc := false) {
             chk.Value := CfgMouse[CfgMouseKeys[i]]
             isCustomKey := (SubStr(CfgMouseKeys[i], 1, 2) == "C_")
             if (isMouseVis && ((isCustomView && isCustomKey) || (isStandardView && !isCustomKey))) {
-                idxOffset := isCustomKey ? i : (i - 20)
+                idxOffset := isCustomKey ? i : (i - 23)
                 chk_y_M := yMR + (idxOffset - 1) * lhM + (lhM - 16) / 2
                 chk.Move(chk_x_M, chk_y_M, "", "", false)
                 chk.Redraw()
@@ -1108,7 +1108,7 @@ TrescLegendy(profil, CustomState) {
 
     ; Definicje tekstów
     txtKlawiatura := "Ctrl+Alt+R = Unlock keys`nCtrl+Alt+P = Screenshot`nCtrl+F1/F2 = Brightness`nCtrl+F12 = Change profile`nShift + `` = ~"
-    txtCustom := "Right(Hold) = Shift`nRight + Wheel = Volume`nRight + Middle = Mute`nRight + X1 = Alt+Tab`nRight + X2 = Shift+Alt+Tab`nRight(2x) = F11`nX1 + Wheel = Brightness`nX1 + Middle = Screen block`nX1(2x) = Esc`nX1(2xHold) + Wheel = ARR " . (myScrToHVArrVScr3Switch ? "🡱 🡳 / 🡰 🡲" : "🡰 🡲 / 🡱 🡳") . " (MClick)`nX2(Hold)[+Wheel] = Ctrl [+Zoom] 🔍`nX2 + Left(2x) = Ctrl+V`nX2 + Left(2xHold) = LClick+Ctrl+V`nX2 + Right = Ctrl+C`nX2 + Right(Hold) = Ctrl+X`nX2 + Right(2x) = LClick+Ctrl+C`nX2 + Right(2xHold) = LClick+Ctrl+X`nX2 + X1 + Wheel = Ctrl+Z/Y`nX2(2x) = Ctrl+Shift+S`nX2(2xHold) + Wheel = Horiz. SCR"
+    txtCustom := "Right(Hold) = Shift`nRight + Wheel = Volume`nRight + Middle = Mute`nRight + X1 = Alt+Tab`nRight + X2 = Shift+Alt+Tab`nRight(2x) = F11`nRight(2xHold) + X1 = Ctrl+Tab`nRight(2xHold) + X2 = Ctrl+Shift+Tab`nRight(2xHold) + Wheel = Ctrl(+Shift)+Tab`nX1 + Wheel = Brightness`nX1 + Middle = Screen block`nX1(2x) = Esc`nX1(2xHold) + Wheel = ARR " . (myScrToHVArrVScr3Switch ? "🡱 🡳 / 🡰 🡲" : "🡰 🡲 / 🡱 🡳") . " (MClick)`nX2(Hold)[+Wheel] = Ctrl [+Zoom] 🔍`nX2 + Left(2x) = Ctrl+V`nX2 + Left(2xHold) = LClick+Ctrl+V`nX2 + Right = Ctrl+C`nX2 + Right(Hold) = Ctrl+X`nX2 + Right(2x) = LClick+Ctrl+C`nX2 + Right(2xHold) = LClick+Ctrl+X`nX2 + X1 + Wheel = Ctrl+Z/Y`nX2(2x) = Ctrl+Shift+S`nX2(2xHold) + Wheel = Horiz. SCR"
     txtStandard := "Right(Hold) = Shift`nRight + Wheel = Volume`nRight + Middle = Mute`nRight + Left = Alt+Tab`nRight(2x) = F11`nRight(2xHold) + Wheel = " . ["ARR 🡰 🡲 / SCR 🞀 ❘❙❚❙❘ 🞂 / ARR 🡱 🡳", "SCR 🞀 ❘❙❚❙❘ 🞂 / ARR 🡱 🡳 / ARR 🡰 🡲", "ARR 🡱 🡳 / ARR 🡰 🡲 / SCR 🞀 ❘❙❚❙❘ 🞂"][myScrToHVArrSwitch + 1] . " (MClick)`nLeft + Wheel = Brightness`nLeft + Middle = Screen block`nLeft + Right = Alt+Tab"
 
     ; Wartości domyślne
@@ -1659,7 +1659,7 @@ _AkcjaRButton_Hold() {
             ["C_RB_Hold", "SHIFT  🡱", "`n..`n"],
             ["C_RB_X1", "X1  ➠  Alt+Tab", "`n"],
             ["C_RB_X2", "X2  ➠  Shift+Alt+Tab", "`n..`n"],
-            ["", "(2xHOLD)SCR / X2, X2  ➠  Ctrl(+Shift)+Tab", "`n..`n"],
+            ["C_RB_2xHold_X1|C_RB_2xHold_X2|C_RB_2xHold_Wheel", "(2xHOLD)SCR / X2, X2  ➠  Ctrl(+Shift)+Tab", "`n..`n"],
             ["C_RB_2x", "2X  ➠  f11", "`n..`n"],
             ["C_RB_Wheel", "SCR  🡱 🡳  ➠  VOLUME(+/-)", "`n"],
             ["C_RB_Middle", "MIDDLE  ➠  MUTE  🔉X", "`n.[2].`n"],
@@ -1721,9 +1721,10 @@ _AkcjaRButton_DoubleHold() {
     }
 
     PokazDymek := () => !PokazPodpowiedzi ? (SilnikGUI.CustomTooltip(PobierzStatusAudio(), { ON: !EkranWygaszony, czas: 1500 })) : SilnikGUI.CustomTooltip(myDynamicTip([
-        ["", "CTRL  ✲", "`n..`n"],
-        ["", "SCR 🡳 / X1  ➠  Ctrl+Tab", "`n"],
-        ["", "SCR 🡱 / X2  ➠  Ctrl+Shift+Tab", ""]
+        ["C_RB_2xHold_X1|C_RB_2xHold_X2|C_RB_2xHold_Wheel", "CTRL  ✲", "`n..`n"],
+        ["C_RB_2xHold_X1", "X1  ➠  Ctrl+Tab", "`n"],
+        ["C_RB_2xHold_X2", "X2  ➠  Ctrl+Shift+Tab", "`n"],
+        ["C_RB_2xHold_Wheel", "SCR 🡱 🡳  ➠  Ctrl(+Shift)+Tab", ""]
     ]), { ON: !EkranWygaszony })
     CzyscDymek := (*) => SilnikGUI.CustomTooltip()
 
@@ -1731,17 +1732,19 @@ _AkcjaRButton_DoubleHold() {
 
     try Hotkey("~*LButton", CzyscDymek, "On")
 
-    try Hotkey("*XButton1", (*) => (myNavState.CtrlActive := true, Send("{Blind}{Ctrl down}{Tab}")), "On")
-    try Hotkey("*XButton2", (*) => (myNavState.CtrlActive := true, Send("{Blind}{Ctrl down}{Shift down}{Tab}{Shift up}")), "On")
-
-    MouseCtrlLib.AktywujTrybKola(
-        (*) => (SetTimer(PokazDymek, 0), Send("{Blind}{Ctrl down}{Shift down}{Tab}{Shift up}")),
-        (*) => (SetTimer(PokazDymek, 0), Send("{Blind}{Ctrl down}{Tab}")), ; możliwa rozbudowa o akcje scrolla  -   obecnie tylko blokuje ctrl
-        (*) => Send("{Ctrl Down}"),
-        (*) => Send("{Ctrl Up}"),
-        (*) => "",
-        "RButton"
-    )
+    if (CfgMouse["C_RB_2xHold_X1"])
+        try Hotkey("*XButton1", (*) => (myNavState.CtrlActive := true, Send("{Blind}{Ctrl down}{Tab}")), "On")
+    if (CfgMouse["C_RB_2xHold_X2"])
+        try Hotkey("*XButton2", (*) => (myNavState.CtrlActive := true, Send("{Blind}{Ctrl down}{Shift down}{Tab}{Shift up}")), "On")
+    if (CfgMouse["C_RB_2xHold_Wheel"] | CfgMouse["C_RB_2xHold_X2"] | CfgMouse["C_RB_2xHold_X1"])
+        MouseCtrlLib.AktywujTrybKola(
+            (*) => CfgMouse["C_RB_2xHold_Wheel"] ? (SetTimer(PokazDymek, 0), Send("{Blind}{Ctrl down}{Shift down}{Tab}{Shift up}")) : "",
+            (*) => CfgMouse["C_RB_2xHold_Wheel"] ? (SetTimer(PokazDymek, 0), Send("{Blind}{Ctrl down}{Tab}")) : "",
+            (*) => Send("{Ctrl Down}"),
+            (*) => Send("{Ctrl Up}"),
+            (*) => "",
+            "RButton"
+        )
 
     try Hotkey("~*LButton", "Off")
     try Hotkey("*MButton", "Off")
