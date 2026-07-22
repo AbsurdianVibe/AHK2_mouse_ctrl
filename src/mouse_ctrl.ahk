@@ -135,6 +135,7 @@ class DaneGlobalne {
         global ListaProfili := ["AUTO (Detect)", "Custom Mouse + Keyboard", "Standard Mouse + Keyboard", "Keyboard Only", "OFF Mode"]
         global myScrToHVArrSwitch := Number(myRead("LastHScroll", 0))
         global myScrToHVArrVScr3Switch := Number(myRead("LastCustomVerticalArrows", 0))
+        global GruboscRamki := 2
         A_IconHidden := true
 
         ; Dry-run dla manualnego uruchomienia programu
@@ -522,7 +523,7 @@ PokazUstawienia(*) {
     TaskExists := myCheckAutostartTask()
     ShortcutExists := FileExist(ShortcutPath) ? 1 : 0
 
-    GlUs := SilnikGUI("Mouse Control SETTINGS", "", { unikalny: 1, pokazPasek: 1, PadD: pad, PadR: pad, PadL: pad, ResizeMarg: 0 })
+    GlUs := SilnikGUI("Mouse Control SETTINGS", "", { GruboscRamki: GruboscRamki, unikalny: 1, pokazPasek: 1, PadD: pad, PadR: pad, PadL: pad, ResizeMarg: 0 })
     if (!GlUs.nowaInstancja) {
         GlUs.Pokaz()
         return
@@ -781,13 +782,14 @@ PokazListeSkrotow(*) {
         return
     }
 
+    ; 3. Inicjalizacja GUI
+    global LegendaInstancja := SilnikGUI("Mouse Control LEGEND", "+ToolWindow", { GruboscRamki: GruboscRamki, CSBarH: 0, unikalny: 1, pokazPasek: 0, AlwaysOnTop: 1, resizeMarg: 0, PadD: 0, PadU: 0, createChild: true }) ; CSBarH: 0 kamufluje bug z nadgorliwymi paskami
+
     ; 2. Wstepnie Oblicz szerokość
     dane_startowe := TrescLegendy(CurrentProfile, CustomActive)
     WymiaryLegendy := ObliczSzerokoscLegendy(dane_startowe)
     SzerkokośćOknaLegendy := WymiaryLegendy.Total
-
-    ; 3. Inicjalizacja GUI
-    global LegendaInstancja := SilnikGUI("Mouse Control LEGEND", "+ToolWindow", { CSBarH: 0, unikalny: 1, pokazPasek: 0, AlwaysOnTop: 1, resizeMarg: 0, PadD: 0, PadL: 0, PadR: 0, PadU: 0, createChild: true }) ; CSBarH: 0 kamufluje bug z nadgorliwymi paskami
+    LegendaInstancja.PadX := 0
     LegendaGui := LegendaInstancja.GuiObj
     childGuiObj := LegendaInstancja.Stan.ChildGui
 
@@ -808,12 +810,12 @@ PokazListeSkrotow(*) {
     ; --- Treść (Kolumny) ---
     childGuiObj.SetFont("s13 w100", "Segoe UI Emoji")
     ; Sekcja Klawiatury
-    GuiControls.KlawTextL := childGuiObj.Add("Text", "-Wrap vListaLKlawiatury +0x0100 Right x0 Background" . KolorMotywu . " " . KolorTekst, "")
-    GuiControls.KlawTextR := childGuiObj.Add("Text", "-Wrap vListaRKlawiatury +0x0100 Left x+0 Background" . KolorMotywu . " " . KolorTekst, "")
+    GuiControls.KlawTextL := childGuiObj.Add("Text", "-Wrap vListaLKlawiatury +0x0100 Right x0 Background" . KolorWarn . " " . KolorTekst, "")
+    GuiControls.KlawTextR := childGuiObj.Add("Text", "-Wrap vListaRKlawiatury +0x0100 Left x+0 Background" . KolorWarn . " " . KolorTekst, "")
     GuiControls.KlawTextCenter := childGuiObj.Add("Text", "Center x0 Background" . KolorMotywu . " c" . KolorNieaktywny, "")
     ; Mysz
-    GuiControls.MyszTextL := childGuiObj.Add("Text", "-Wrap Right x0 Background" . KolorMotywu . " " . KolorTekst, "")
-    GuiControls.MyszTextR := childGuiObj.Add("Text", "-Wrap Left x+0 Background" . KolorMotywu . " " . KolorTekst, "")
+    GuiControls.MyszTextL := childGuiObj.Add("Text", "-Wrap Right x0 Background" . KolorWarn . " " . KolorTekst, "")
+    GuiControls.MyszTextR := childGuiObj.Add("Text", "-Wrap Left x+0 Background" . KolorWarn . " " . KolorTekst, "")
     GuiControls.MyszTextCenter := childGuiObj.Add("Text", "Center x0 Background" . KolorMotywu . " c" . KolorNieaktywny, "")
 
     ; Stopka
@@ -884,28 +886,23 @@ AktualizujListe(wymusWidocznosc := false) {
     ; 1. Dane i wymiary
     dane := TrescLegendy(CurrentProfile, CustomActive)
     WymiaryLegendy := ObliczSzerokoscLegendy(dane)
+    SzerkokośćOknaLegendy := WymiaryLegendy.Total + LegendaInstancja.padX * 2 + GruboscRamki * 2
 
-    if (dane.KlawText != "" && dane.KlawText != "Shortcuts disabled") {
-        WymiaryLegendy.Total += 35
-    }
-
-    SzerkokośćOknaLegendy := WymiaryLegendy.Total
-
-    start_x_klaw := (SzerkokośćOknaLegendy - (WymiaryLegendy.KL + WymiaryLegendy.KR)) / 2
-    start_x_mysz := (SzerkokośćOknaLegendy - (WymiaryLegendy.ML + WymiaryLegendy.MR)) / 2
+    start_x_klaw := (SzerkokośćOknaLegendy - GruboscRamki * 2 - 30 - (WymiaryLegendy.KL + WymiaryLegendy.KR)) / 2
+    start_x_mysz := (SzerkokośćOknaLegendy - GruboscRamki * 2 - 30 - (WymiaryLegendy.ML + WymiaryLegendy.MR)) / 2
 
     ; 2. Układ
 
     ; A. Góra
-    myMoveDeScaled(GuiControls.UprawnieniaText, (SzerkokośćOknaLegendy - WymiaryLegendy.wUpr) / 2, 10, WymiaryLegendy.wUpr)
+    myMoveDeScaled(GuiControls.UprawnieniaText, (SzerkokośćOknaLegendy - WymiaryLegendy.wUpr - GruboscRamki * 2) / 2, 10, WymiaryLegendy.wUpr)
     GuiControls.UprawnieniaText.GetPos(, , , &hUpr)
 
     y_curr := 10 + hUpr
-    GuiControls.DDL.Move((SzerkokośćOknaLegendy - szerListy) / 2, y_curr)
+    GuiControls.DDL.Move((SzerkokośćOknaLegendy - szerListy - GruboscRamki * 2) / 2, y_curr)
     GuiControls.DDL.GetPos(, , , &hDDL)
     y_curr += hDDL + 5
     if (CurrentProfile != 4) {
-        GuiControls.DDLSub.Move((SzerkokośćOknaLegendy - szerListy) / 2, y_curr)
+        GuiControls.DDLSub.Move((SzerkokośćOknaLegendy - szerListy - GruboscRamki * 2) / 2, y_curr)
         GuiControls.DDLSub.GetPos(, , , &hDDLSub)
         y_curr += hDDLSub + 10
     } else {
@@ -973,19 +970,22 @@ AktualizujListe(wymusWidocznosc := false) {
     }
 
     ; C. Dół (Przyciski)
-    GuiControls.BtnSettings.Move((SzerkokośćOknaLegendy - 140) / 2, y_curr)
+    GuiControls.BtnSettings.Move((SzerkokośćOknaLegendy - 140 - GruboscRamki * 2) / 2, y_curr)
     if (GuiControls.BtnSettings.HasProp("BackgroundCtrl")) {
-        GuiControls.BtnSettings.BackgroundCtrl.Move((SzerkokośćOknaLegendy - 140) / 2, y_curr, 140, 30)
+        GuiControls.BtnSettings.BackgroundCtrl.Move((SzerkokośćOknaLegendy - 140 - GruboscRamki * 2) / 2, y_curr, 140, 30)
     }
 
     y_exit := y_curr + 30 + 10
-    myMoveDeScaled(GuiControls.Exit, (SzerkokośćOknaLegendy - WymiaryLegendy.wExit) / 2, y_exit, WymiaryLegendy.wExit)
+    myMoveDeScaled(GuiControls.Exit, (SzerkokośćOknaLegendy - WymiaryLegendy.wExit - GruboscRamki * 2) / 2, y_exit, WymiaryLegendy.wExit)
     GuiControls.Exit.GetPos(, , , &hExit) ; Pobieramy wysokość ostatniego elementu
 
     ; 3. Finalizacja
     wysokosc_okna := y_exit + hExit + 10
     ; Check OS window visibility state
     myIsVisible := DllCall("IsWindowVisible", "Ptr", LegendaGui.Hwnd)
+
+    if (wysokosc_okna * (A_ScreenDPI / 96) > (A_ScreenHeight - 100))
+        SzerkokośćOknaLegendy += 25
 
     if (wymusWidocznosc || myIsVisible) {
         UsunTip() ; Destroy tip only when legend is displayed
@@ -995,7 +995,6 @@ AktualizujListe(wymusWidocznosc := false) {
         ; Update window size in memory keeping it hidden
         LegendaGui.Show("Hide w" . SzerkokośćOknaLegendy . " h" . wysokosc_okna)
     }
-
     ; Wymuszenie czyszczenia brudnych warstw ChildGui z pozostawionych duchów
     LegendaInstancja.WymusPelnyRedraw()
     SetTimer(ObjBindMethod(SilnikGUI, "GłównaPętlaStanu"), 15)
@@ -1058,7 +1057,7 @@ OdswiezNaglowek(yStart, cHead, txtHead, szerokosc, hHead) {
         marginHead := 10
         cHead.Visible := false
         startX := (SzerkokośćOknaLegendy - szerokosc) / 2
-        myMoveDeScaled(cHead, startX, yStart, szerokosc, hHead)
+        myMoveDeScaled(cHead, startX - GruboscRamki, yStart, szerokosc, hHead)
         cHead.Value := txtHead
         cHead.Visible := true
     }
@@ -1085,7 +1084,7 @@ OdswiezSekcje(yStart, txtContent, cL, cR, cC, kolor, wLeft, wRight, startX, hWym
     }
 
     if (txtContent == "Shortcuts disabled") {
-        myMoveDeScaled(cC, 0, yStart, SzerkokośćOknaLegendy, hContent)
+        myMoveDeScaled(cC, 0, yStart, SzerkokośćOknaLegendy - GruboscRamki * 2, hContent)
         myMoveDeScaled(cL, startX, yStart, 1, hContent)
         myMoveDeScaled(cR, startX, yStart, 1, hContent)
         AktualizujSekcje(txtContent, cL, cR, cC, kolor)
@@ -1181,7 +1180,7 @@ ObliczSzerokoscLegendy(dane) {
     maxHeader := Max(wHeadK, wHeadM, wMainHead, wUpr)
 
     ; Marginesy (+40px czyli 20 na stronę)
-    totalW := Max(maxContent, maxHeader, szerListy) + 40
+    totalW := Max(maxContent, maxHeader, szerListy)
 
     return { Total: totalW, KL: wymiaryK.L, KR: wymiaryK.R, ML: wymiaryM.L, MR: wymiaryM.R, KS: wymiaryK.Single, MS: wymiaryM.Single, hK: hK, hM: hM, wHeadK: wHeadK, wHeadM: wHeadM, wMainHead: wMainHead, wUpr: wUpr, wExit: wExit, hHeadK: hHeadK, hHeadM: hHeadM, hMainHead: hMainHead }
 }
