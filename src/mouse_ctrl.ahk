@@ -60,10 +60,6 @@ global WM_COPYDATA := 0x004A
 global myWmiNamespace := "winmgmts:\\.\root\WMI"
 ; #endregion
 
-; #region --- FOCUS SINK ---
-global myFocusSinkGui := Gui("+ToolWindow -Caption +AlwaysOnTop")
-myFocusSinkGui.Show("Hide x-10000 y-10000 w10 h10 NA")
-; #endregion
 ; #region --- SPRAWDZANIE UPRAWNIEŃ ---
 ; TODO: Fix skalowania (refaktor legendy do silnika)
 
@@ -410,14 +406,7 @@ UstawProfil(nr, pokazacTip := false) {
     }
 
     if (LegendaIstnieje()) {
-        if ((StaryProfil < 3 && nr >= 3) || (StaryProfil >= 3 && nr < 3)) {
-            global LegendaFocusNaProf := true
-            try WinActivate(myFocusSinkGui.Hwnd)
-            LegendaInstancja.Zakoncz()
-            SetTimer(PokazListeSkrotow, -10)
-        } else {
-            AktualizujListe()
-        }
+        AktualizujListe()
     }
 }
 
@@ -554,7 +543,6 @@ PokazUstawienia(*) {
             UstawieniaFocusNaProf := true
 
             DefaultProfile := prof
-            try WinActivate(myFocusSinkGui.Hwnd)
             GlUs.Zakoncz()
             SetTimer(PokazUstawienia, -10)
         } else {
@@ -833,12 +821,7 @@ PokazListeSkrotow(*) {
 
     childGuiObj.SetFont("s10 norm", "Segoe UI")
     GuiControls.DDL := LegendaInstancja.DDList(ListaProfili, (ctrl, *) => UstawProfil(ctrl.SelectedIndex - 1, false), CurrentProfile + 1, { w: szerListy, pos: "x0" })
-    if (CurrentProfile < 3) {
-        GuiControls.SubDDL := LegendaInstancja.DDList(ListaSubprofili, (ctrl, *) => UstawSubprofil(ctrl.SelectedIndex - 1), CurrentSubprofile + 1, { w: szerListy, pos: "x0 y+5" })
-    } else {
-        if HasProp(GuiControls, "SubDDL")
-            GuiControls.DeleteProp("SubDDL")
-    }
+    GuiControls.SubDDL := LegendaInstancja.DDList(ListaSubprofili, (ctrl, *) => UstawSubprofil(ctrl.SelectedIndex - 1), CurrentSubprofile + 1, { w: szerListy, pos: "x0 y+5" })
 
     ; --- Nagłówki Sekcji ---
     childGuiObj.SetFont("s15 bold", "Segoe UI")
@@ -870,7 +853,6 @@ PokazListeSkrotow(*) {
 }
 
 myZamknijLegende(*) {
-    try WinActivate(myFocusSinkGui.Hwnd) ; Twarda aktywacja niewidocznego okna usuwa flagę Foreground z Legendy
     LegendaGui.Hide()
 }
 
@@ -886,13 +868,11 @@ AktualizujListe(wymusWidocznosc := false) {
         ctrlDDL.Value := nowaWartosc
         ControlSetText(nowaWartosc, ctrlDDL.Hwnd)
 
-        if (HasProp(GuiControls, "SubDDL")) {
-            subCtrlDDL := GuiControls.SubDDL.CoreControls[1]
-            subCtrlDDL.SelectedIndex := CurrentSubprofile + 1
-            nowaSubWartosc := subCtrlDDL.Opcje[CurrentSubprofile + 1]
-            subCtrlDDL.Value := nowaSubWartosc
-            ControlSetText(nowaSubWartosc, subCtrlDDL.Hwnd)
-        }
+        subCtrlDDL := GuiControls.SubDDL.CoreControls[1]
+        subCtrlDDL.SelectedIndex := CurrentSubprofile + 1
+        nowaSubWartosc := subCtrlDDL.Opcje[CurrentSubprofile + 1]
+        subCtrlDDL.Value := nowaSubWartosc
+        ControlSetText(nowaSubWartosc, subCtrlDDL.Hwnd)
     }
 
     ; 1. Dane i wymiary
@@ -913,17 +893,21 @@ AktualizujListe(wymusWidocznosc := false) {
     GuiControls.DDL.Move((SzerkokośćOknaLegendy - szerListy) / 2, y_curr)
     GuiControls.DDL.GetPos(, , , &hDDL)
 
-    if (CurrentProfile < 3 && HasProp(GuiControls, "SubDDL")) {
+    if (CurrentProfile < 3) {
         y_curr += hDDL + 5
         GuiControls.SubDDL.Move((SzerkokośćOknaLegendy - szerListy) / 2, y_curr)
-        for c in GuiControls.SubDDL.Elementy
-            c.Opt("-Hidden")
+        for c in GuiControls.SubDDL.Elementy {
+            c.Opt("-Hidden +Tabstop")
+        }
         GuiControls.SubDDL.GetPos(, , , &hSubDDL)
         y_curr += hSubDDL + 10
     } else {
-        if (HasProp(GuiControls, "SubDDL")) {
-            for c in GuiControls.SubDDL.Elementy
-                c.Opt("+Hidden")
+        GuiControls.SubDDL.Move(-1000, -1000)
+        for c in GuiControls.SubDDL.Elementy {
+            if (focusedHwnd == c.Hwnd) {
+                focusedHwnd := GuiControls.DDL.CoreControls[1].Hwnd
+            }
+            c.Opt("+Hidden -Tabstop")
         }
         y_curr += hDDL + 10
     }
