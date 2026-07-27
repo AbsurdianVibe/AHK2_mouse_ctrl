@@ -1,4 +1,4 @@
-﻿#Requires AutoHotkey v2.0
+#Requires AutoHotkey v2.0
 ;@Ahk2Exe-SetMainIcon mouse_ctrl.ico
 ;@Ahk2Exe-SetCompanyName AbsurdianVibe
 ;@Ahk2Exe-SetDescription Mouse Control
@@ -1368,17 +1368,21 @@ myBindLateHotkeys() {
 
     ; --- SUBPROFIL GAME (Mysz Custom) ---
     HotIf((*) => (CurrentProfile == 1 || (CurrentProfile == 0 && CustomActive)) && CurrentSubprofile == 1 && !EkranWygaszony)
-    Hotkey("~XButton1 & WheelUp", (*) => ZmianaJasnosci(BrightnessStepMouse), "On")
-    Hotkey("~XButton1 & WheelDown", (*) => ZmianaJasnosci(-BrightnessStepMouse), "On")
-    Hotkey("~RButton & WheelUp", (*) => ZmianaGlosnosci(VolStepMouse), "On")
-    Hotkey("~RButton & WheelDown", (*) => ZmianaGlosnosci(-VolStepMouse), "On")
+    Hotkey("~XButton1 & WheelUp", (*) => (UsunTip(), ZmianaJasnosci(BrightnessStepMouse)), "On")
+    Hotkey("~XButton1 & WheelDown", (*) => (UsunTip(), ZmianaJasnosci(-BrightnessStepMouse)), "On")
+    Hotkey("~RButton & WheelUp", (*) => (UsunTip(), ZmianaGlosnosci(VolStepMouse)), "On")
+    Hotkey("~RButton & WheelDown", (*) => (UsunTip(), ZmianaGlosnosci(-VolStepMouse)), "On")
+    Hotkey("~XButton1 Up", (*) => SilnikGUI.CustomTooltip(), "On")
+    Hotkey("~RButton Up", (*) => SilnikGUI.CustomTooltip(), "On")
 
     ; --- SUBPROFIL GAME (Mysz Standardowa) ---
     HotIf((*) => (CurrentProfile == 2 || (CurrentProfile == 0 && !CustomActive)) && CurrentSubprofile == 1 && !EkranWygaszony)
-    Hotkey("~LButton & WheelUp", (*) => ZmianaJasnosci(BrightnessStepMouse), "On")
-    Hotkey("~LButton & WheelDown", (*) => ZmianaJasnosci(-BrightnessStepMouse), "On")
-    Hotkey("~RButton & WheelUp", (*) => ZmianaGlosnosci(VolStepMouse), "On")
-    Hotkey("~RButton & WheelDown", (*) => ZmianaGlosnosci(-VolStepMouse), "On")
+    Hotkey("~LButton & WheelUp", (*) => (UsunTip(), ZmianaJasnosci(BrightnessStepMouse)), "On")
+    Hotkey("~LButton & WheelDown", (*) => (UsunTip(), ZmianaJasnosci(-BrightnessStepMouse)), "On")
+    Hotkey("~RButton & WheelUp", (*) => (UsunTip(), ZmianaGlosnosci(VolStepMouse)), "On")
+    Hotkey("~RButton & WheelDown", (*) => (UsunTip(), ZmianaGlosnosci(-VolStepMouse)), "On")
+    Hotkey("~LButton Up", (*) => SilnikGUI.CustomTooltip(), "On")
+    Hotkey("~RButton Up", (*) => SilnikGUI.CustomTooltip(), "On")
 
 
     ; --- GŁÓWNE ---
