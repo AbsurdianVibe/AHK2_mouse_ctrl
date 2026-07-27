@@ -122,6 +122,7 @@ class DaneGlobalne {
         }
 
         global DefaultProfile := Number(myRead("DefaultProfile", 0))
+        global DefaultSubprofile := Number(myRead("DefaultSubprofile", 0))
         global BrightnessStepMouse := Number(myRead("BrightnessStepMouse", 3))
         global BrightnessStepKbd := Number(myRead("BrightnessStepKbd", 5))
         global VolStepMouse := Number(myRead("VolStepMouse", 2))
@@ -131,6 +132,7 @@ class DaneGlobalne {
         global myScreenOFF := Number(myRead("ScreenOFF", 0))
         global myLowerBrightness := Number(myRead("LowerBrightness", 0))
         global ListaProfili := ["AUTO (Detect)", "Custom Mouse + Keyboard", "Standard Mouse + Keyboard", "Keyboard Only", "OFF Mode"]
+        global ListaSubprofili := ["Apps", "Game"]
         global myScrToHVArrSwitch := Number(myRead("LastHScroll", 0))
         global myScrToHVArrVScr3Switch := Number(myRead("LastCustomVerticalArrows", 0))
         A_IconHidden := true
@@ -157,6 +159,7 @@ class DaneGlobalne {
 
         global AktywneOkna := []
         global CurrentProfile := DefaultProfile
+        global CurrentSubprofile := DefaultSubprofile
         global currentBrightness := Number(myRead("LastBrightness", 10))
         global LegendaGui := 0
         global GlUs := 0
@@ -194,19 +197,31 @@ DetectMenuEntry(wParam, lParam, msg, hwnd) => UsunTip()
 ; #endregion
 ;----------------------------------------------------------------------------------------------------------------------------------------------
 ; #region --- KONFIGURACJA MENU TRAY ---
-A_TrayMenu.Delete()
-A_TrayMenu.Add("Show shortcuts", PokazListeSkrotow)
-A_TrayMenu.Default := "Show shortcuts"
-A_TrayMenu.ClickCount := 1
-A_TrayMenu.Add()
-A_TrayMenu.Add("Settings", PokazUstawienia)
-A_TrayMenu.Add()
-for i, nazwa in ListaProfili
-    A_TrayMenu.Add(nazwa, ((idx, *) => UstawProfil(idx)).Bind(i - 1))
-(IsSet(CurrentProfile)) && A_TrayMenu.Check(ListaProfili[CurrentProfile + 1])
-A_TrayMenu.Add()
-A_TrayMenu.Add("Unlock Keys (Ctrl+Alt+R)", (*) => myEmergencyUnlock())
-A_TrayMenu.Add("Exit", (*) => ExitApp())
+OdswiezMenuTray() {
+    global ListaProfili, ListaSubprofili, CurrentProfile, CurrentSubprofile
+    A_TrayMenu.Delete()
+    A_TrayMenu.Add("Show shortcuts", PokazListeSkrotow)
+    A_TrayMenu.Default := "Show shortcuts"
+    A_TrayMenu.ClickCount := 1
+    A_TrayMenu.Add()
+    A_TrayMenu.Add("Settings", PokazUstawienia)
+    A_TrayMenu.Add()
+    for i, nazwa in ListaProfili
+        A_TrayMenu.Add(nazwa, ((idx, *) => UstawProfil(idx)).Bind(i - 1))
+    (IsSet(CurrentProfile)) && A_TrayMenu.Check(ListaProfili[CurrentProfile + 1])
+
+    if (CurrentProfile < 3) {
+        A_TrayMenu.Add()
+        for i, nazwa in ListaSubprofili
+            A_TrayMenu.Add("Subprofile: " . nazwa, ((idx, *) => UstawSubprofil(idx)).Bind(i - 1))
+        (IsSet(CurrentSubprofile)) && A_TrayMenu.Check("Subprofile: " . ListaSubprofili[CurrentSubprofile + 1])
+    }
+
+    A_TrayMenu.Add()
+    A_TrayMenu.Add("Unlock Keys (Ctrl+Alt+R)", (*) => myEmergencyUnlock())
+    A_TrayMenu.Add("Exit", (*) => ExitApp())
+}
+OdswiezMenuTray()
 
 OnMessage(WM_COPYDATA, myOnHardwareStateReady)
 
@@ -338,7 +353,12 @@ ZapiszStanSprzetowy(ExitReason, ExitCode) {
 
 TipColor() => ["9FFB88", "fbf988", "fbf988", "fbc088", "FA8072"][CurrentProfile + 1]
 
-LegendaIstnieje() => (IsSet(LegendaGui) && IsObject(LegendaGui) && WinExist("ahk_id " LegendaGui.Hwnd))
+LegendaIstnieje() {
+    try {
+        return (IsSet(LegendaGui) && IsObject(LegendaGui) && WinExist("ahk_id " LegendaGui.Hwnd))
+    }
+    return false
+}
 UstawieniaIstnieje() {
     try {
         return (IsSet(GlUs) && IsObject(GlUs) && WinExist("ahk_id " GlUs.GuiObj.Hwnd))
@@ -373,12 +393,15 @@ OnTrayMouseEvent(wParam, lParam, msg, hwnd) {
 PobierzNazweProfilu() => ["AUTO: " . (CustomActive ? "Custom Mouse" : "Standard Mouse"), "MANUAL: Custom Mouse", "MANUAL: Standard Mouse", "Keyboard Only", "OFF Mode (Shortcuts disabled)"][CurrentProfile + 1]
 
 UstawProfil(nr, pokazacTip := false) {
-    global CurrentProfile := nr
+    global CurrentProfile, LegendaGui, LegendaInstancja
+    StaryProfil := IsSet(CurrentProfile) ? CurrentProfile : 0
+    CurrentProfile := nr
     for j, n in ListaProfili
         (j - 1 == nr) ? A_TrayMenu.Check(n) : A_TrayMenu.Uncheck(n)
     if (nr == 0)
         myFetchHardwareState(1) ; Fetch ONLY mouse state
 
+    OdswiezMenuTray()
     A_IconTip := "Mouse Control"
 
     ; Tip tylko gdy Legenda ukryta
@@ -386,8 +409,27 @@ UstawProfil(nr, pokazacTip := false) {
         PokazTip(PobierzNazweProfilu(), TipColor())
     }
 
-    LegendaIstnieje() && AktualizujListe()
+    if (LegendaIstnieje()) {
+        if ((StaryProfil < 3 && nr >= 3) || (StaryProfil >= 3 && nr < 3)) {
+            global LegendaFocusNaProf := true
+            try WinActivate(myFocusSinkGui.Hwnd)
+            LegendaInstancja.Zakoncz()
+            SetTimer(PokazListeSkrotow, -10)
+        } else {
+            AktualizujListe()
+        }
+    }
 }
+
+UstawSubprofil(nr) {
+    global CurrentSubprofile := nr
+    for j, n in ListaSubprofili
+        (j - 1 == nr) ? A_TrayMenu.Check("Subprofile: " . n) : A_TrayMenu.Uncheck("Subprofile: " . n)
+
+    LegendaIstnieje() && AktualizujListe()
+    myBindLateHotkeys()
+}
+
 ; #endregion
 ; #region teśc popupów
 TipText := {
@@ -453,8 +495,8 @@ MonitorujMysz() {
 ;----------------------------------------------------------------------------------------------------------------------------------------------
 ;   #region --- OKNO USTAWIEŃ ---
 PokazUstawienia(*) {
-    global DefaultProfile, BrightnessStepMouse, BrightnessStepKbd, VolStepMouse, IniPath, GlUs, Uprawnienia
-    global StartProf, Edit_BM, Edit_BK, Edit_VM, Edit_VD
+    global DefaultProfile, DefaultSubprofile, BrightnessStepMouse, BrightnessStepKbd, VolStepMouse, IniPath, GlUs, Uprawnienia
+    global StartProf, StartSubProf, Edit_BM, Edit_BK, Edit_VM, Edit_VD
     global StatusTextControl, Check_Autostart, Check_Podpowiedzi, UprawnieniaCheckbox, Check_ScreenOFF
     SzerOknUst := 220
     SettingsTipDelON := 300
@@ -479,7 +521,47 @@ PokazUstawienia(*) {
     Tytul := GlUs.Add("Text", "Center y+15 x" . ((SzerOknUst + pad) - szerDD) / 2 . " w" . szerDD, "Default startup profile:")
     Tytul.SetFont("norm")
 
-    StartProf := GlUs.DDList(ListaProfili, 0, DefaultProfile + 1, { w: szerDD, pos: "x" . ((SzerOknUst + pad) - szerDD) / 2 . " y+5" })
+    StartProf := GlUs.DDList(ListaProfili, (ctrl, *) => AktualizujWidocznoscSubDDLUstawienia(ctrl.SelectedIndex - 1), DefaultProfile + 1, { w: szerDD, pos: "x" . ((SzerOknUst + pad) - szerDD) / 2 . " y+5" })
+
+    StartSubProf := 0
+    if (DefaultProfile < 3) {
+        SubProfTytul := GlUs.Add("Text", "Center y+10 x" . ((SzerOknUst + pad) - szerDD) / 2 . " w" . szerDD, "Default subprofile:")
+        SubProfTytul.SetFont("norm")
+        StartSubProf := GlUs.DDList(ListaSubprofili, 0, DefaultSubprofile + 1, { w: szerDD, pos: "x" . ((SzerOknUst + pad) - szerDD) / 2 . " y+5" })
+    }
+
+    AktualizujWidocznoscSubDDLUstawienia(prof) {
+        global DefaultProfile
+        if ((prof < 3 && DefaultProfile >= 3) || (prof >= 3 && DefaultProfile < 3)) {
+            ; Zapisz stan UI do globali
+            global BrightnessStepMouse := Number(Edit_BM.Value)
+            global BrightnessStepKbd := Number(Edit_BK.Value)
+            global VolStepMouse := Number(Edit_VM.Value)
+            global HoldThreshold := Number(StrReplace(Edit_VD.Value, ",", "."))
+            global PokazPodpowiedzi := Check_Podpowiedzi.Value
+            global Uprawnienia := UprawnieniaCheckbox.Value
+            global myScreenOFF := Check_ScreenOFF.Value
+            global myAdminStartLvl := myStartLvlDDL.SelectedIndex - 1
+            if (IsObject(StartSubProf))
+                global DefaultSubprofile := StartSubProf.SelectedIndex - 1
+
+            global UstawieniaOstatniX, UstawieniaOstatniY, UstawieniaFocusNaProf
+            try GlUs.GuiObj.GetPos(&outX, &outY)
+            if (IsSet(outX) && IsSet(outY)) {
+                UstawieniaOstatniX := outX
+                UstawieniaOstatniY := outY
+            }
+            UstawieniaFocusNaProf := true
+
+            DefaultProfile := prof
+            try WinActivate(myFocusSinkGui.Hwnd)
+            GlUs.Zakoncz()
+            SetTimer(PokazUstawienia, -10)
+        } else {
+            DefaultProfile := prof
+        }
+    }
+
     myDetectBtn := GlUs.DodajPrzycisk("Mouse Detect", myDetectMouseNative, "w" . szerDD . " x" . ((SzerOknUst + pad) - szerDD) / 2 . " y+5")
     myDetectBtn.HoverAction := (*) => SilnikGUI.CustomTooltip("Detects the hardware ID of your Custom Mouse.`nRecommended: Keep only ONE mouse connected during detection.", { delayon: SettingsTipDelON, trybPozycji: myDetectBtn, Align: "up-5", Transparent: 0.1, TransClick: 1 })
     GlUs.Ramka(Tytul, myDetectBtn, 8)
@@ -514,11 +596,22 @@ PokazUstawienia(*) {
     Check_ScreenOFF.BoundingBox.GetPos(, , &bbW)
     Check_ScreenOFF.HoverAction := (*) => SilnikGUI.CustomTooltip("Forces the physical display to turn off via Windows API during SCREEN BLOCK.`nActivated via:`n• LButton + MButton`n• XButton1 + RButton", { delayon: SettingsTipDelON, trybPozycji: Check_ScreenOFF, Align: "down+5 CenterX+" . Round((bbW / 2) - (cW / 2)), Transparent: 0.1, TransClick: 1 })
 
-    GlUs.DodajPrzycisk("Apply", (*) => ZapiszIUstaw(GlUs.GuiObj, StartProf, Edit_BM, Edit_BK, Edit_VM, Edit_VD, Check_Podpowiedzi, myStartLvlDDL, false), "y+20 w80 h30")
-    GlUs.DodajPrzycisk("Save", (*) => ZapiszIUstaw(GlUs.GuiObj, StartProf, Edit_BM, Edit_BK, Edit_VM, Edit_VD, Check_Podpowiedzi, myStartLvlDDL, true), "x" . (SzerOknUst - 80) . " yp w80 h30")
-    GlUs.Pokaz()
+    GlUs.DodajPrzycisk("Apply", (*) => ZapiszIUstaw(GlUs.GuiObj, StartProf, StartSubProf, Edit_BM, Edit_BK, Edit_VM, Edit_VD, Check_Podpowiedzi, myStartLvlDDL, false), "y+20 w80 h30")
+    GlUs.DodajPrzycisk("Save", (*) => ZapiszIUstaw(GlUs.GuiObj, StartProf, StartSubProf, Edit_BM, Edit_BK, Edit_VM, Edit_VD, Check_Podpowiedzi, myStartLvlDDL, true), "x" . (SzerOknUst - 80) . " yp w80 h30")
+    global UstawieniaOstatniX, UstawieniaOstatniY, UstawieniaFocusNaProf
+    if (IsSet(UstawieniaOstatniX) && UstawieniaOstatniX !== "") {
+        GlUs.Pokaz("x" . UstawieniaOstatniX . " y" . UstawieniaOstatniY)
+        UstawieniaOstatniX := "", UstawieniaOstatniY := ""
+    } else {
+        GlUs.Pokaz()
+    }
     WinActivate("ahk_id " GlUs.GuiObj.Hwnd)
-    Edit_BM.Focus()
+    if (IsSet(UstawieniaFocusNaProf) && UstawieniaFocusNaProf) {
+        StartProf.CoreControls[1].Focus()
+        UstawieniaFocusNaProf := false
+    } else {
+        Edit_BM.Focus()
+    }
 }
 WeryfikujKlikniecieAutostartu(ctrl, *) {
     ; czy istnieje zadanie Admina
@@ -555,11 +648,13 @@ ZastosujZmianyAutostartu() {
     NowyStatus := TaskExists ? "Status: Task Scheduler (Admin)" : (ShortcutExists ? "Status: Startup Folder (Regular)" : "Status: Disabled")
     StatusTextControl.Value := NowyStatus
 }
-ZapiszIUstaw(G, D, BM, BK, VM, VD, CP, SL, ZamknijOkno := true) {
-    global DefaultProfile, BrightnessStepMouse, BrightnessStepKbd, VolStepMouse, HoldThreshold, PokazPodpowiedzi, IniPath, Uprawnienia, UprawnieniaCheckbox, Check_Autostart, myAdminStartLvl, myScreenOFF, Check_ScreenOFF
+ZapiszIUstaw(G, D, SD, BM, BK, VM, VD, CP, SL, ZamknijOkno := true) {
+    global DefaultProfile, DefaultSubprofile, BrightnessStepMouse, BrightnessStepKbd, VolStepMouse, HoldThreshold, PokazPodpowiedzi, IniPath, Uprawnienia, UprawnieniaCheckbox, Check_Autostart, myAdminStartLvl, myScreenOFF, Check_ScreenOFF
 
     ; 1. Pobranie wartości (SilnikGUI gwarantuje typ i zakres)
     DefaultProfile := D.SelectedIndex - 1
+    if (IsObject(SD))
+        DefaultSubprofile := SD.SelectedIndex - 1
     BrightnessStepMouse := Number(BM.Value)
     BrightnessStepKbd := Number(BK.Value)
     VolStepMouse := Number(VM.Value)
@@ -571,6 +666,7 @@ ZapiszIUstaw(G, D, BM, BK, VM, VD, CP, SL, ZamknijOkno := true) {
 
     ; 2. Zapis INI
     IniWrite(DefaultProfile, IniPath, "Settings", "DefaultProfile")
+    IniWrite(DefaultSubprofile, IniPath, "Settings", "DefaultSubprofile")
     IniWrite(Uprawnienia, IniPath, "Settings", "Uprawnienia")
     IniWrite(myAdminStartLvl, IniPath, "Settings", "AdminStartLvl")
     IniWrite(PokazPodpowiedzi, IniPath, "Settings", "PokazPodpowiedzi")
@@ -737,6 +833,12 @@ PokazListeSkrotow(*) {
 
     childGuiObj.SetFont("s10 norm", "Segoe UI")
     GuiControls.DDL := LegendaInstancja.DDList(ListaProfili, (ctrl, *) => UstawProfil(ctrl.SelectedIndex - 1, false), CurrentProfile + 1, { w: szerListy, pos: "x0" })
+    if (CurrentProfile < 3) {
+        GuiControls.SubDDL := LegendaInstancja.DDList(ListaSubprofili, (ctrl, *) => UstawSubprofil(ctrl.SelectedIndex - 1), CurrentSubprofile + 1, { w: szerListy, pos: "x0 y+5" })
+    } else {
+        if HasProp(GuiControls, "SubDDL")
+            GuiControls.DeleteProp("SubDDL")
+    }
 
     ; --- Nagłówki Sekcji ---
     childGuiObj.SetFont("s15 bold", "Segoe UI")
@@ -775,12 +877,22 @@ myZamknijLegende(*) {
 AktualizujListe(wymusWidocznosc := false) {
     global CurrentProfile, GuiControls, CustomActive, SzerkokośćOknaLegendy, LegendaGui, WymiaryLegendy, GruboscRamki
 
+    focusedHwnd := DllCall("GetFocus", "Ptr")
+
     try {
-        ctrlDDL := GuiControls.DDL.Ctrls[1]
+        ctrlDDL := GuiControls.DDL.CoreControls[1]
         ctrlDDL.SelectedIndex := CurrentProfile + 1
         nowaWartosc := ctrlDDL.Opcje[CurrentProfile + 1]
         ctrlDDL.Value := nowaWartosc
         ControlSetText(nowaWartosc, ctrlDDL.Hwnd)
+
+        if (HasProp(GuiControls, "SubDDL")) {
+            subCtrlDDL := GuiControls.SubDDL.CoreControls[1]
+            subCtrlDDL.SelectedIndex := CurrentSubprofile + 1
+            nowaSubWartosc := subCtrlDDL.Opcje[CurrentSubprofile + 1]
+            subCtrlDDL.Value := nowaSubWartosc
+            ControlSetText(nowaSubWartosc, subCtrlDDL.Hwnd)
+        }
     }
 
     ; 1. Dane i wymiary
@@ -800,7 +912,21 @@ AktualizujListe(wymusWidocznosc := false) {
     y_curr := 10 + hUpr
     GuiControls.DDL.Move((SzerkokośćOknaLegendy - szerListy) / 2, y_curr)
     GuiControls.DDL.GetPos(, , , &hDDL)
-    y_curr += hDDL + 10
+
+    if (CurrentProfile < 3 && HasProp(GuiControls, "SubDDL")) {
+        y_curr += hDDL + 5
+        GuiControls.SubDDL.Move((SzerkokośćOknaLegendy - szerListy) / 2, y_curr)
+        for c in GuiControls.SubDDL.Elementy
+            c.Opt("-Hidden")
+        GuiControls.SubDDL.GetPos(, , , &hSubDDL)
+        y_curr += hSubDDL + 10
+    } else {
+        if (HasProp(GuiControls, "SubDDL")) {
+            for c in GuiControls.SubDDL.Elementy
+                c.Opt("+Hidden")
+        }
+        y_curr += hDDL + 10
+    }
 
     ; B. Sekcje
     y_curr := OdswiezNaglowek(y_curr, GuiControls.Header, dane.Header, WymiaryLegendy.wMainHead, WymiaryLegendy.hMainHead)
@@ -826,8 +952,17 @@ AktualizujListe(wymusWidocznosc := false) {
 
     if (wymusWidocznosc || myIsVisible) {
         UsunTip() ; Destroy tip only when legend is displayed
+
+        global LegendaFocusNaProf
         LegendaInstancja.Pokaz("w" . SzerkokośćOknaLegendy . " h" . wysokosc_okna . " Center NA")
+
         WinActivate(LegendaGui.Hwnd)
+        if (IsSet(LegendaFocusNaProf) && LegendaFocusNaProf) {
+            try GuiControls.DDL.CoreControls[1].Focus()
+            LegendaFocusNaProf := false
+        } else if (focusedHwnd) {
+            DllCall("SetFocus", "Ptr", focusedHwnd)
+        }
     } else {
         ; Update window size in memory keeping it hidden
         LegendaGui.Show("Hide w" . SzerkokośćOknaLegendy . " h" . wysokosc_okna)
@@ -941,20 +1076,28 @@ OdswiezSekcje(yStart, txtContent, cL, cR, cC, kolor, wLeft, wRight, startX, hWym
 ; ============================================================================================================================================================
 
 TrescLegendy(profil, CustomState) {
+    global CurrentSubprofile
     dane := { Header: "", KlawHeader: "", KlawText: "", MyszHeader: "", MyszText: "", KlawKolor: KolorTekst, MyszKolor: KolorTekst }
 
     ; Definicje tekstów
     txtKlawiatura := "Ctrl+Alt+R = Unlock keys`nCtrl+Alt+P = Screenshot`nCtrl+F1/F2 = Brightness`nCtrl+F12 = Change profile`nShift + `` = ~"
     txtCustom := "Right(Hold) = Shift`nRight + Wheel = Volume`nRight + Middle = Mute`nRight + X1 = Alt+Tab`nRight + X2 = Shift+Alt+Tab`nRight(2x) = F11`nX1 + Wheel = Brightness`nX1 + Middle = Screen block`nX1(2x) = Esc`nX1(2xHold) + Wheel = ARR " . (myScrToHVArrVScr3Switch ? "🡱 🡳 / 🡰 🡲" : "🡰 🡲 / 🡱 🡳") . " (MClick)`nX2(Hold) = Ctrl`nX2(Hold) + Wheel = Zoom 🔍`nX2 + Left(2x) = Ctrl+V`nX2 + Left(2xHold) = LClick+Ctrl+V`nX2 + Right = Ctrl+C`nX2 + Right(Hold) = Ctrl+X`nX2 + Right(2x) = LClick+Ctrl+C`nX2 + Right(2xHold) = LClick+Ctrl+X`nX2 + X1 + Wheel = Ctrl+Z/Y`nX2(2x) = Ctrl+Shift+S`nX2(2xHold) + Wheel = Horiz. SCR"
-    txtStandard := "Right(Hold) = Shift`nRight + Wheel = Volume`nRight + Middle = Mute`nRight + Left = Alt+Tab`nRight(2x) = F11`nRight(2xHold) + Wheel = " . ["ARR 🡰 🡲 / SCR 🞀 ❘❙❚❙❘ 🞂 / ARR 🡱 🡳", "SCR 🞀 ❘❙❚❙❘ 🞂 / ARR 🡱 🡳 / ARR 🡰 🡲", "ARR 🡱 🡳 / ARR 🡰 🡲 / SCR 🞀 ❘❙❚❙❘ 🞂"][myScrToHVArrSwitch + 1] . " (MClick)`nLeft + Wheel = Brightness`nLeft + Middle = Screen block`nLeft + Right = Alt+Tab"
+    txtStandard := "Right(Hold) = Shift`nRight + Wheel = Volume`nRight + Middle = Mute`nRight + Left = Alt+Tab`nRight(2x) = F11`nRight(2xHold) + Wheel = " . ["ARR 🡱 🡳 / SCR ⯬ ⯮ / ARR 🡰 🡲", "SCR ⯬ ⯮ / ARR 🡰 🡲 / ARR 🡱 🡳", "ARR 🡰 🡲 / ARR 🡱 🡳 / SCR ⯬ ⯮"][myScrToHVArrSwitch + 1] . " (MClick)`nLeft + Wheel = Brightness`nLeft + Middle = Screen block`nLeft + Right = Alt+Tab"
+
+    txtGameCustom := "~X1 + Wheel = Brightness`n~Right + Wheel = Volume"
+    txtGameStandard := "~Left + Wheel = Brightness`n~Right + Wheel = Volume"
 
     ; Wartości domyślne
     dane.Header := (profil == 0) ? "AUTO" : ((profil == 4) ? "" : "MANUAL")
-    dane.KlawHeader := (profil == 4) ? "ALL DISABLED" : "— KEYBOARD —"
-    dane.KlawText := (profil == 4) ? "Shortcuts disabled" : txtKlawiatura
+    dane.KlawHeader := (profil == 4 || (CurrentSubprofile == 1 && profil < 3)) ? "ALL DISABLED" : "— KEYBOARD —"
+    dane.KlawText := (profil == 4 || (CurrentSubprofile == 1 && profil < 3)) ? "Shortcuts disabled" : txtKlawiatura
     dane.KlawKolor := KolorTekst
     dane.MyszHeader := [(CustomState ? "— Custom MOUSE —" : "— STANDARD MOUSE —"), "— Custom MOUSE —", "— STANDARD MOUSE —", "— MOUSE —", "— MOUSE —"][profil + 1]
-    dane.MyszText := [(CustomState ? txtCustom : txtStandard), txtCustom, txtStandard, "Shortcuts disabled", "Shortcuts disabled"][profil + 1]
+    if (CurrentSubprofile == 1 && profil < 3) {
+        dane.MyszText := [(CustomState ? txtGameCustom : txtGameStandard), txtGameCustom, txtGameStandard, "Shortcuts disabled", "Shortcuts disabled"][profil + 1]
+    } else {
+        dane.MyszText := [(CustomState ? txtCustom : txtStandard), txtCustom, txtStandard, "Shortcuts disabled", "Shortcuts disabled"][profil + 1]
+    }
     dane.MyszKolor := KolorTekst
     return dane
 }
@@ -1211,7 +1354,7 @@ myBindLateHotkeys() {
     Hotkey("F1", (*) => (PokazUstawienia(), myZamknijLegende()), "On")
 
     ; --- MYSZ Custom ---
-    HotIf((*) => (CurrentProfile == 1 || (CurrentProfile == 0 && CustomActive)) && !EkranWygaszony)
+    HotIf((*) => (CurrentProfile == 1 || (CurrentProfile == 0 && CustomActive)) && CurrentSubprofile == 0 && !EkranWygaszony)
     Hotkey("*RButton", (*) => AkcjaRButton(), "On")
     Hotkey("XButton1", myCustomXButton1, "On")
     Hotkey("XButton2", myCustomXButton2, "On")
@@ -1221,10 +1364,10 @@ myBindLateHotkeys() {
     Hotkey("*RButton Up", myGlobalRButtonUpWrapper, "On")
 
     ; --- MYSZ STANDARDOWA ---
-    HotIf((*) => (CurrentProfile == 2 || (CurrentProfile == 0 && !CustomActive)) && !EkranWygaszony)
+    HotIf((*) => (CurrentProfile == 2 || (CurrentProfile == 0 && !CustomActive)) && CurrentSubprofile == 0 && !EkranWygaszony)
     Hotkey("RButton", (*) => AkcjaRButton(), "On")
 
-    HotIf((*) => (CurrentProfile == 2 || (CurrentProfile == 0 && !CustomActive)) && !CzyNadZablokowanymElementem() && !myStandardProxyActive && !EkranWygaszony)
+    HotIf((*) => (CurrentProfile == 2 || (CurrentProfile == 0 && !CustomActive)) && CurrentSubprofile == 0 && !CzyNadZablokowanymElementem() && !myStandardProxyActive && !EkranWygaszony)
     Hotkey("~LButton & WheelUp", (*) => (UsunTip(), ZmianaJasnosci(BrightnessStepMouse)), "On")
     Hotkey("~LButton & WheelDown", (*) => (UsunTip(), ZmianaJasnosci(-BrightnessStepMouse)), "On")
     Hotkey("~LButton & MButton", (*) => (UsunTip(), WygasEkran("LButton")), "On")
@@ -1233,11 +1376,26 @@ myBindLateHotkeys() {
     Hotkey("~LButton", (*) => LButtonStandardTip(), "On")
 
     ; --- KLAWIATURA ---
-    HotIf((*) => CurrentProfile != 4 && !EkranWygaszony)
+    HotIf((*) => CurrentProfile != 4 && (CurrentProfile == 3 || CurrentSubprofile == 0) && !EkranWygaszony)
     Hotkey("^!p", (*) => (SilnikGUI.CustomTooltip("Screenshot 📸", { Transparent: 0.2, trybPozycji: "Screen", Align: "Up+20", rozmiarCzcionki: 25, DelayON: 50, czas: 1500 }), Send("{PrintScreen}")), "On")
     Hotkey("^F1", (*) => ZmianaJasnosci(-BrightnessStepKbd), "On")
     Hotkey("^F2", (*) => ZmianaJasnosci(BrightnessStepKbd), "On")
     Hotkey("+" . Chr(96), (*) => SendText("~"), "On") ; Shift + `
+
+    ; --- SUBPROFIL GAME (Mysz Custom) ---
+    HotIf((*) => (CurrentProfile == 1 || (CurrentProfile == 0 && CustomActive)) && CurrentSubprofile == 1 && !EkranWygaszony)
+    Hotkey("~XButton1 & WheelUp", (*) => ZmianaJasnosci(BrightnessStepMouse), "On")
+    Hotkey("~XButton1 & WheelDown", (*) => ZmianaJasnosci(-BrightnessStepMouse), "On")
+    Hotkey("~RButton & WheelUp", (*) => ZmianaGlosnosci(VolStepMouse), "On")
+    Hotkey("~RButton & WheelDown", (*) => ZmianaGlosnosci(-VolStepMouse), "On")
+
+    ; --- SUBPROFIL GAME (Mysz Standardowa) ---
+    HotIf((*) => (CurrentProfile == 2 || (CurrentProfile == 0 && !CustomActive)) && CurrentSubprofile == 1 && !EkranWygaszony)
+    Hotkey("~LButton & WheelUp", (*) => ZmianaJasnosci(BrightnessStepMouse), "On")
+    Hotkey("~LButton & WheelDown", (*) => ZmianaJasnosci(-BrightnessStepMouse), "On")
+    Hotkey("~RButton & WheelUp", (*) => ZmianaGlosnosci(VolStepMouse), "On")
+    Hotkey("~RButton & WheelDown", (*) => ZmianaGlosnosci(-VolStepMouse), "On")
+
 
     ; --- GŁÓWNE ---
     HotIf((*) => !EkranWygaszony)
