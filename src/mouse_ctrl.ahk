@@ -43,11 +43,14 @@ WinSetTitle("MouseCtrl_Main_Window", "ahk_id " A_ScriptHwnd)
 DllCall("User32\ChangeWindowMessageFilterEx", "Ptr", A_ScriptHwnd, "UInt", 0x0044, "UInt", 1, "Ptr", 0) ; Przepustka UIPI dla restartu (#SingleInstance)
 
 #Include "..\AHK2_external_code\UIA.ahk"
-#Include "..\..\AHK2_Colorful_GUI\AHK2ColorfulGUI.ahk"
-; #Include "..\AHK2_Colorful_GUI\AHK2ColorfulGUI.ahk"
+#Include "..\AHK2_Colorful_GUI\AHK2ColorfulGUI.ahk"
 #Include "mouse_ctrl_lib.ahk"
 #Include "..\AHK2_My_libs\MojeFunkcje.ahk"
 #Include "myHardwareWorker.ahk"
+
+; work paths
+; #Include "..\..\AHK2_Colorful_GUI\AHK2ColorfulGUI.ahk"
+; #Include C:\CODE\AHK2\AHK2_My_libs\MojeFunkcje.ahk
 
 ; #region --- IPC PROTOCOL (SSoT) ---
 /** Dynamic Win32 message registration to prevent ID collisions.
@@ -1524,20 +1527,24 @@ myStandardScrollMode(button := "RButton", togle := "*LButton") {
 myCustomXButton1(*) {
     Multiklik("XButton1",
         (*) => Send("{XButton1}"),
-        (*) => (!PokazPodpowiedzi ? (SilnikGUI.CustomTooltip("Brightness: " . currentBrightness . "%  ◑", { ON: !EkranWygaszony, czas: 1500 })) : (SilnikGUI.CustomTooltip("SCR  ➠  BRIGHTNESS  ◑`n..`nRIGHT  ➠  SCREEN BLOCK  💻`n.[2].`n(x2)  ➠  ESC  🡰`n..`n(2xHOLD)+SCR  🡱 🡳  ➠  ARR  " . (myScrToHVArrVScr3Switch ? "🡱 🡳 / 🡰 🡲" : "🡰 🡲 / 🡱 🡳") . "`n.[2].`nBrightness: " . currentBrightness . "%  ◑", { ON: !EkranWygaszony, MargPoz: 4 })), MouseCtrlLib.AktywujTrybKola((*) => ZmianaJasnosci(BrightnessStepMouse), (*) => ZmianaJasnosci(-BrightnessStepMouse), (*) => Hotkey("*RButton", (*) => (UsunTip(), WygasEkran("XButton1")), "On"), (*) => Hotkey("*RButton", (*) => AkcjaRButton(), "On"), 0, "XButton1"), SilnikGUI.CustomTooltip("")),
+        (*) => (!PokazPodpowiedzi ? (SilnikGUI.CustomTooltip("Brightness: " . currentBrightness . "%  ◑", { ON: !EkranWygaszony, czas: 1500 })) : (SilnikGUI.CustomTooltip("SCR  ➠  BRIGHTNESS  ◑`n..`nRIGHT  ➠  SCREEN BLOCK  💻`n.[2].`n(x2)  ➠  ESC  🡰`n..`n(2xHOLD)+SCR  🡱 🡳  ➠  ARR  " . (myScrToHVArrVScr3Switch ? "🡱 🡳 / 🡰 🡲" : "🡰 🡲 / 🡱 🡳") . "`n.[2].`nBrightness: " . currentBrightness . "%  ◑", { ON: !EkranWygaszony, MargPoz: 4, DelayON: HoldThreshold * 1000 })), MouseCtrlLib.AktywujTrybKola((*) => ZmianaJasnosci(BrightnessStepMouse), (*) => ZmianaJasnosci(-BrightnessStepMouse), (*) => Hotkey("*RButton", (*) => (UsunTip(), WygasEkran("XButton1")), "On"), (*) => Hotkey("*RButton", (*) => AkcjaRButton(), "On"), 0, "XButton1"), SilnikGUI.CustomTooltip("")),
         (*) => SendEvent("{Escape}"),
         (*) => arrowFocusNav(),
-        HoldThreshold
+        HoldThreshold,
+        1,
+        true
     )
 }
 
 myCustomXButton2(*) {
     Multiklik("XButton2",
         (*) => Send("{XButton2}"),
-        (*) => (SilnikGUI.CustomTooltip("CTRL  ✲`n..`nSCR  🡱 🡳  ➠  ZOOM   ( + ) 🔍 ( - )`n.[4].`n- L E F T -`n.[3].`n(x2) ➠  CTRL+V  📄`n..`n(2xHOLD)  ➠  CTRL+V+LEFT  📄🡳`n.[4].`n- R I G H T -`n.[3].`n(x1)  ➠  CTRL+C  📄📄`n..`n(HOLD)  ➠  CTRL+X  ✂`n..`n(x2)  ➠  CTRL+C+LEFT   📄📄🡳`n..`n(2xHOLD)  ➠  CTRL+X+LEFT  ✂🡳`n.[4].`nX1+SCR  🡱 🡳  ➠  CTRL+Z/Y  🡷 🡵`n.[3].`n(x2)  ➠  CTRL+SHIFT+S  ✍`n..`n(2xHOLD)+SCR  🡱 🡳  ➠  SCR  🞀 ❘❙❚❙❘ 🞂", { ON: (!EkranWygaszony && PokazPodpowiedzi), MargPoz: 2 }), MouseCtrlLib.AktywujTrybKola((*) => Send("{WheelUp}"), (*) => Send("{WheelDown}"), (*) => Send("{Ctrl Down}"), (*) => Send("{Ctrl Up}"), () => SilnikGUI.CustomTooltip(""), "XButton2"), SilnikGUI.CustomTooltip("")),
+        (*) => (SilnikGUI.CustomTooltip("CTRL  ✲`n..`nSCR  🡱 🡳  ➠  ZOOM   ( + ) 🔍 ( - )`n.[4].`n- L E F T -`n.[3].`n(x2) ➠  CTRL+V  📄`n..`n(2xHOLD)  ➠  CTRL+V+LEFT  📄🡳`n.[4].`n- R I G H T -`n.[3].`n(x1)  ➠  CTRL+C  📄📄`n..`n(HOLD)  ➠  CTRL+X  ✂`n..`n(x2)  ➠  CTRL+C+LEFT   📄📄🡳`n..`n(2xHOLD)  ➠  CTRL+X+LEFT  ✂🡳`n.[4].`nX1+SCR  🡱 🡳  ➠  CTRL+Z/Y  🡷 🡵`n.[3].`n(x2)  ➠  CTRL+SHIFT+S  ✍`n..`n(2xHOLD)+SCR  🡱 🡳  ➠  SCR  🞀 ❘❙❚❙❘ 🞂", { ON: (!EkranWygaszony && PokazPodpowiedzi), MargPoz: 2, DelayON: HoldThreshold * 1000 }), MouseCtrlLib.AktywujTrybKola((*) => Send("{WheelUp}"), (*) => Send("{WheelDown}"), (*) => Send("{Ctrl Down}"), (*) => Send("{Ctrl Up}"), () => SilnikGUI.CustomTooltip(""), "XButton2"), SilnikGUI.CustomTooltip("")),
         (*) => SendEvent("^a"),
         (*) => (SilnikGUI.CustomTooltip("SCR  🡱 🡳  ➠  SCR  🞀 ❘❙❚❙❘ 🞂", { ON: (!EkranWygaszony && PokazPodpowiedzi) }), MouseCtrlLib.AktywujTrybKola((*) => (SendLevel(1), SendEvent("{WheelLeft}")), (*) => (SendLevel(1), SendEvent("{WheelRight}")), 0, 0, () => SilnikGUI.CustomTooltip(""), "XButton2"), SilnikGUI.CustomTooltip("")),
-        HoldThreshold
+        HoldThreshold,
+        1,
+        true
     )
 }
 
@@ -1671,7 +1678,7 @@ AkcjaRButton() {
         (*) => (SendInput("{RButton Down}"), SendInput("{RButton Up}")),
         _AkcjaRButton_Hold,
         (*) => (UstawFocusPodMysz(), SendEvent("{F11}")),
-        _AkcjaRButton_DoubleHold, HoldThreshold, 5
+        _AkcjaRButton_DoubleHold, HoldThreshold, 5, 1
     )
 }
 
