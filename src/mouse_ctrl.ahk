@@ -814,7 +814,7 @@ PokazListeSkrotow(*) {
     SzerkokośćOknaLegendy := WymiaryLegendy.Total
 
     ; 3. Inicjalizacja GUI
-    global LegendaInstancja := SilnikGUI("Mouse Control LEGEND", "+ToolWindow", { CSBarH: 0, unikalny: 1, pokazPasek: 0, AlwaysOnTop: 1, resizeMarg: 0, PadD: 0, PadL: 0, PadR: 0, PadU: 0, createChild: true }) ; CSBarH: 0 kamufluje bug z nadgorliwymi paskami
+    global LegendaInstancja := SilnikGUI("Mouse Control LEGEND", "+ToolWindow +AlwaysOnTop", { CSBarH: 0, unikalny: 1, pokazPasek: 0, AlwaysOnTop: 1, resizeMarg: 0, PadD: 0, PadL: 0, PadR: 0, PadU: 0, createChild: true }) ; CSBarH: 0 kamufluje bug z nadgorliwymi paskami
     LegendaGui := LegendaInstancja.GuiObj
     childGuiObj := LegendaInstancja.Stan.ChildGui
 
